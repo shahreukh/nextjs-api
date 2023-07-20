@@ -244,7 +244,7 @@ def area2b(t1,t2,l,s,div,runway,strip,azimuth):
   coordinates1.append(c11)
   coordinates1 = coordinates1 + points_on_arc(c11, b11, b12, b11[2], "cw", 1)
 
-  c21 = calculate_new_point(t1[4],t1[5],t1[6],d1,azimuth,0,w/2/d2)
+  c21 = calculate_new_point(t1[4],t1[5],t1[6],d1,azimuth,0,w/2/d1)
   b21 = calculate_new_point(c21[0],c21[1],c21[2],l,azimuth,s,0)
   b22 = calculate_new_point(c21[0],c21[1],c21[2],l,azimuth+math.degrees(math.atan(div)),s,0)
 
@@ -254,7 +254,8 @@ def area2b(t1,t2,l,s,div,runway,strip,azimuth):
 #################################
 
   coordinates2 = []
-  c12 = calculate_new_point(t2[4],t2[5],t2[6],d2,azimuth-180,0,w/2/d1)
+  c12 = calculate_new_point(t2[4],t2[5],t2[6],d2,azimuth-180,0,w/2/d2)
+  #c21 = calculate_new_point(t1[4],t1[5],t1[6],d1,azimuth,0,w/2/d2)
   b13 = calculate_new_point(c12[0],c12[1],c12[2],l,azimuth-180+math.degrees(math.atan(div)),s,0)
   b14 = calculate_new_point(c12[0],c12[1],c12[2],l,azimuth-180,s,0)
 
