@@ -46,7 +46,7 @@ export default async function handler(
           tfpa_slope,
         } = req.body;
 
-        const pythonScriptPath = "external/python_scripts/generate_TFPA.py";
+        const pythonScriptPath = "external/pythonscripts/generate_TFPA.py";
 
         const process: ChildProcess = spawn("python", [
           pythonScriptPath,

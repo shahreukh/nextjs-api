@@ -48,7 +48,7 @@ export default async function handler(
           ref_elev,
         } = req.body;
 
-        const pythonScriptPath = "external/python_scripts/generate_eTOD.py";
+        const pythonScriptPath = "external/pythonscripts/generate_eTOD.py";
 
         const process: ChildProcess = spawn("python", [
           pythonScriptPath,
@@ -101,7 +101,7 @@ export default async function handler(
               );
 
               res.status(200).send(scriptOutput);
-              //console.log(scriptOutput);
+              console.log(scriptOutput);
             } catch (error) {
               // Error handling code...
             }
