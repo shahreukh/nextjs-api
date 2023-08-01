@@ -91,8 +91,11 @@ export default async function handler(
 
         process.on("close", (code) => {
           if (code !== 0) {
-            // Error handling code...
+            console.log("Error executing Python script. Exit code:", code);
+            console.log("Script Error:", scriptError);
+            res.status(500).json({ error: "Server Error" });
           } else {
+            console.log("Python script executed successfully.");
             try {
               // Send the KML data as the response
               res.setHeader(
@@ -101,13 +104,16 @@ export default async function handler(
               );
 
               res.status(200).send(scriptOutput);
-              console.log(scriptOutput);
+              console.log("KML data sent as response.");
+              console.log("KML data:", scriptOutput);
             } catch (error) {
-              // Error handling code...
+              console.error("Error sending KML response:", error);
+              res.status(500).json({ error: "Server Error" });
             }
           }
         });
       } else {
+        console.log("Invalid request method. Expected POST.");
         res.status(405).json({ error: "Method Not Allowed" });
       }
     })
@@ -116,3 +122,42 @@ export default async function handler(
       res.status(500).json({ error: "Server Error" });
     });
 }
+
+//         let scriptOutput = "";
+//         let scriptError = "";
+
+//         process.stdout?.on("data", (data: Buffer) => {
+//           scriptOutput += data.toString();
+//         });
+
+//         process.stderr?.on("data", (data: Buffer) => {
+//           scriptError += data.toString();
+//         });
+
+//         process.on("close", (code) => {
+//           if (code !== 0) {
+//             // Error handling code...
+//           } else {
+//             try {
+//               // Send the KML data as the response
+//               res.setHeader(
+//                 "Content-Type",
+//                 "application/vnd.google-earth.kml+xml"
+//               );
+
+//               res.status(200).send(scriptOutput);
+//               console.log(scriptOutput);
+//             } catch (error) {
+//               // Error handling code...
+//             }
+//           }
+//         });
+//       } else {
+//         res.status(405).json({ error: "Method Not Allowed" });
+//       }
+//     })
+//     .catch((error) => {
+//       console.error("CORS error:", error);
+//       res.status(500).json({ error: "Server Error" });
+//     });
+// }
