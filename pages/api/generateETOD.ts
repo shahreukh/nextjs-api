@@ -104,8 +104,8 @@ export default async function handler(
               );
 
               res.status(200).send(scriptOutput);
-              console.log("KML data sent as response.");
-              console.log("KML data:", scriptOutput);
+              // console.log("KML data sent as response.");
+              // console.log("KML data:", scriptOutput);
             } catch (error) {
               console.error("Error sending KML response:", error);
               res.status(500).json({ error: "Server Error" });
