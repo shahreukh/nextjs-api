@@ -163,11 +163,3 @@ STRIP_LENGTH, STRIP_WIDTH: Length and width of the strip.
 REF_ELEV: Reference elevation of the aerodrome for the inner horizontal surface.
 Output
 The script generates eTOD surfaces compliant with Annex 15 specifications. The surfaces are exported as KML files, which can be used for visualization and analysis in various GIS tools.
-
-## License
-
-This project is licensed under the [MIT License](LICENSE).
-
----
-
-Feel free to update and customize this README to match your project's specifics. Don't forget to include information about your project's purpose, the parameters required for eTOD generation, and any additional instructions or considerations that users might need to know.
