@@ -49,7 +49,7 @@ npm start
 Example POST request using `curl`:
 
 ```bash
-curl -X POST http://localhost:3000/api/generate-etod -H "Content-Type: application/json" -d '{
+curl -X POST http://localhost:3033/api/generate-etod -H "Content-Type: application/json" -d '{
   "airportCode": "XYZ",
   "e1_lat": 37.12345,
   "e1_lon": -122.6789,
