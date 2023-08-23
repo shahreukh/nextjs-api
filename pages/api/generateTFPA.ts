@@ -1,6 +1,6 @@
+import { NextApiRequest, NextApiResponse } from "next";
 import { spawn, ChildProcess } from "child_process";
 import Cors from "cors";
-import { NextApiRequest, NextApiResponse } from "next";
 
 const cors = Cors({
   origin: "*",
@@ -13,6 +13,7 @@ export default async function handler(
   return new Promise<void>((resolve, reject) => {
     cors(req, res, (result: unknown) => {
       if (result instanceof Error) {
+        console.log("Cors Error");
         reject(result);
       } else {
         resolve();
@@ -87,10 +88,9 @@ export default async function handler(
 
         process.on("close", (code: number) => {
           if (code !== 0) {
-            // Error handling code...
+            console.log("Error");
           } else {
             try {
-              // Send the KML data as the response
               res.setHeader(
                 "Content-Type",
                 "application/vnd.google-earth.kml+xml"
@@ -99,7 +99,7 @@ export default async function handler(
               res.status(200).send(scriptOutput);
               //console.log(scriptOutput);
             } catch (error) {
-              // Error handling code...
+              console.log("Error");
             }
           }
         });

@@ -28,7 +28,8 @@
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
-    "src/app/hello/route.ts"
+    "src/app/hello/route.ts",
+    "pages/api/dxfToGeojson.ts"
   ],
   "exclude": ["node_modules"]
 }
