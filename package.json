@@ -9,26 +9,33 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@types/node": "^20.4.2",
-    "@types/react": "18.2.15",
+    "@types/node": "^20.5.4",
+    "@types/react": "18.2.21",
     "@types/react-dom": "18.2.7",
-    "autoprefixer": "10.4.14",
+    "autoprefixer": "10.4.15",
     "axios": "^1.4.0",
     "child_process": "^1.0.2",
     "cors": "^2.8.5",
     "dxf2json": "^1.0.3",
     "dxftojson": "^0.1.12",
-    "eslint": "8.45.0",
-    "eslint-config-next": "13.4.10",
+    "eslint": "8.47.0",
+    "eslint-config-next": "13.4.19",
+    "execa": "^8.0.1",
+    "formidable": "^3.5.0",
     "fs": "^0.0.1-security",
-    "next": "^13.4.10",
-    "postcss": "8.4.26",
+    "multer": "^1.4.5-lts.1",
+    "multiparty": "^4.2.3",
+    "next": "^13.4.19",
+    "postcss": "8.4.28",
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "tailwindcss": "3.3.3",
     "typescript": "5.1.6"
   },
   "devDependencies": {
-    "@types/cors": "^2.8.13"
+    "@types/cors": "^2.8.13",
+    "@types/formidable": "^3.4.1",
+    "@types/multer": "^1.4.7",
+    "@types/multiparty": "^0.0.33"
   }
 }
