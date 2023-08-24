@@ -5,7 +5,7 @@ import { promises as fsPromises } from "fs";
 import cors from "cors";
 
 const corsMiddleware = cors({
-  origin: "*", // Replace with the allowed origin(s)
+  origin: "*",
   methods: "POST",
   allowedHeaders: "Content-Type",
 });
@@ -20,12 +20,9 @@ const convertDgnToKml = async (req: NextApiRequest, res: NextApiResponse) => {
       }
 
       const dgnFilePath = req.file.path;
-      const kmlFilePath = `uploads/${req.file.originalname.replace(
-        ".dgn",
-        ".kml"
-      )}`;
+      const temporaryKmlFilePath = `uploads/temp.kml`;
 
-      const ogr2ogrCommand = `ogr2ogr -f "KML" ${kmlFilePath} ${dgnFilePath}`;
+      const ogr2ogrCommand = `ogr2ogr -f "KML" ${temporaryKmlFilePath} ${dgnFilePath}`;
 
       exec(ogr2ogrCommand, async (error) => {
         if (error) {
@@ -35,9 +32,33 @@ const convertDgnToKml = async (req: NextApiRequest, res: NextApiResponse) => {
             .json({ error: "Error converting DGN to KML." });
         }
 
-        const convertedKml = await fsPromises.readFile(kmlFilePath, "utf-8");
-        res.setHeader("Content-Type", "application/xml");
-        res.status(200).send(convertedKml);
+        try {
+          const convertedKml = await fsPromises.readFile(
+            temporaryKmlFilePath,
+            "utf-8"
+          );
+          res.setHeader("Content-Type", "application/xml");
+          res.status(200).send(convertedKml);
+
+          // Delete the uploaded DGN file
+          try {
+            await fsPromises.unlink(dgnFilePath);
+            console.log("Uploaded DGN file removed successfully.");
+          } catch (unlinkError) {
+            console.error("Error removing uploaded DGN file:", unlinkError);
+          }
+        } catch (readError) {
+          console.error("Error reading temporary KML file:", readError);
+          return res.status(500).json({ error: "An error occurred." });
+        } finally {
+          // Delete the temporary KML file after reading or in case of an error
+          try {
+            await fsPromises.unlink(temporaryKmlFilePath);
+            console.log("Temporary KML file removed successfully.");
+          } catch (unlinkError) {
+            console.error("Error removing temporary KML file:", unlinkError);
+          }
+        }
       });
     } catch (error) {
       console.error("Error:", error);

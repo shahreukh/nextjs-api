@@ -13,19 +13,16 @@ const corsMiddleware = cors({
 const upload = multer({ dest: "uploads/" });
 
 const convertDxfToKml = async (req: NextApiRequest, res: NextApiResponse) => {
-  corsMiddleware(req, res, async () => {
+  return corsMiddleware(req, res, async () => {
     try {
       if (!req.file) {
         return res.status(400).json({ error: "No DXF file uploaded." });
       }
 
       const dxfFilePath = req.file.path;
-      const kmlFilePath = `uploads/${req.file.originalname.replace(
-        ".dxf",
-        ".kml"
-      )}`;
+      const temporaryKmlFilePath = `uploads/temp.kml`;
 
-      const ogr2ogrCommand = `ogr2ogr -f "KML" ${kmlFilePath} ${dxfFilePath}`;
+      const ogr2ogrCommand = `ogr2ogr -f "KML" ${temporaryKmlFilePath} ${dxfFilePath}`;
 
       exec(ogr2ogrCommand, async (error) => {
         if (error) {
@@ -35,9 +32,33 @@ const convertDxfToKml = async (req: NextApiRequest, res: NextApiResponse) => {
             .json({ error: "Error converting DXF to KML." });
         }
 
-        const convertedKml = await fsPromises.readFile(kmlFilePath, "utf-8");
-        res.setHeader("Content-Type", "application/xml");
-        res.status(200).send(convertedKml);
+        try {
+          const convertedKml = await fsPromises.readFile(
+            temporaryKmlFilePath,
+            "utf-8"
+          );
+          res.setHeader("Content-Type", "application/xml");
+          res.status(200).send(convertedKml);
+
+          // Delete the uploaded DXF file
+          try {
+            await fsPromises.unlink(dxfFilePath);
+            console.log("Uploaded DXF file removed successfully.");
+          } catch (unlinkError) {
+            console.error("Error removing uploaded DXF file:", unlinkError);
+          }
+        } catch (readError) {
+          console.error("Error reading temporary KML file:", readError);
+          return res.status(500).json({ error: "An error occurred." });
+        } finally {
+          // Delete the temporary KML file after reading or in case of an error
+          try {
+            await fsPromises.unlink(temporaryKmlFilePath);
+            console.log("Temporary KML file removed successfully.");
+          } catch (unlinkError) {
+            console.error("Error removing temporary KML file:", unlinkError);
+          }
+        }
       });
     } catch (error) {
       console.error("Error:", error);
@@ -53,18 +74,16 @@ export const config = {
 };
 
 const handleApiRequest = async (req: NextApiRequest, res: NextApiResponse) => {
-  corsMiddleware(req, res, async () => {
-    if (req.method === "OPTIONS") {
-      res.status(200).end();
-    } else {
-      await upload.single("dxfFile")(req, res, (err) => {
-        if (err) {
-          return res.status(400).json({ error: "File upload error." });
-        }
-        convertDxfToKml(req, res);
-      });
-    }
-  });
+  if (req.method === "OPTIONS") {
+    res.status(200).end();
+  } else {
+    await upload.single("dxfFile")(req, res, (err) => {
+      if (err) {
+        return res.status(400).json({ error: "File upload error." });
+      }
+      convertDxfToKml(req, res);
+    });
+  }
 };
 
 export default handleApiRequest;
