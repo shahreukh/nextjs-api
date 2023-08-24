@@ -12,6 +12,13 @@ const corsMiddleware = cors({
 
 const upload = multer({ dest: "uploads/" });
 
+export const config = {
+  api: {
+    bodyParser: false,
+    responseLimit: false,
+  },
+};
+
 const convertDgnToKml = async (req: NextApiRequest, res: NextApiResponse) => {
   return corsMiddleware(req, res, async () => {
     try {
@@ -65,12 +72,6 @@ const convertDgnToKml = async (req: NextApiRequest, res: NextApiResponse) => {
       return res.status(500).json({ error: "An error occurred." });
     }
   });
-};
-
-export const config = {
-  api: {
-    bodyParser: false,
-  },
 };
 
 const handleApiRequest = async (req: NextApiRequest, res: NextApiResponse) => {
