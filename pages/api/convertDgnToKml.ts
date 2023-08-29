@@ -13,7 +13,7 @@ const corsMiddleware = cors({
 const upload = multer({
   dest: "uploads/",
   limits: {
-    fileSize: 100 * 1024 * 1024,
+    fileSize: 300 * 1024 * 1024,
   },
 });
 
@@ -49,6 +49,15 @@ const handleApiRequest = async (req: NextApiRequest, res: NextApiResponse) => {
         exec(ogr2ogrCommand, async (error) => {
           if (error) {
             console.error("Error converting to KML:", error);
+
+            // Delete the uploaded DGN file
+            try {
+              await fsPromises.unlink(dgnFilePath);
+              console.log("Uploaded DGN file removed due to conversion error.");
+            } catch (unlinkError) {
+              console.error("Error removing uploaded DGN file:", unlinkError);
+            }
+
             return res
               .status(500)
               .json({ error: "Error converting DGN to KML." });

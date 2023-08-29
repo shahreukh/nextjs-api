@@ -14,7 +14,7 @@ const corsMiddleware = cors({
 const upload = multer({
   dest: "uploads/",
   limits: {
-    fileSize: 30 * 1024 * 1024,
+    fileSize: 300 * 1024 * 1024,
   },
 });
 
