@@ -39,7 +39,7 @@ const handleApiRequest = async (req: NextApiRequest, res: NextApiResponse) => {
         return res.status(400).json({ error: "File upload error." });
       }
 
-      let temporaryKmlFilePath;
+      let temporaryGeoJSONFilePath;
 
       try {
         if (!req.file) {
@@ -47,31 +47,34 @@ const handleApiRequest = async (req: NextApiRequest, res: NextApiResponse) => {
         }
 
         const dxfFilePath = req.file.path;
-        temporaryKmlFilePath = `uploads/temp.kml`;
+        temporaryGeoJSONFilePath = `uploads/temp.geojson`;
 
-        const ogr2ogrCommand = `ogr2ogr -f "KML" ${temporaryKmlFilePath} ${dxfFilePath}`;
+        const ogr2ogrCommand = `ogr2ogr -f "GeoJSON" ${temporaryGeoJSONFilePath} ${dxfFilePath}`;
 
         await execPromise(ogr2ogrCommand);
 
-        const convertedKml = await fsPromises.readFile(
-          temporaryKmlFilePath,
+        const convertedGeoJSON = await fsPromises.readFile(
+          temporaryGeoJSONFilePath,
           "utf-8"
         );
-        res.setHeader("Content-Type", "application/xml");
-        res.status(200).send(convertedKml);
-        console.log(convertedKml);
+        res.setHeader("Content-Type", "application/json");
+        res.status(200).send(convertedGeoJSON);
+        console.log(convertedGeoJSON);
         await fsPromises.unlink(dxfFilePath);
         //console.log("Uploaded DXF file removed successfully.");
       } catch (error) {
         console.error("Error:", error);
         return res.status(500).json({ error: "An error occurred." });
       } finally {
-        if (temporaryKmlFilePath) {
+        if (temporaryGeoJSONFilePath) {
           try {
-            await fsPromises.unlink(temporaryKmlFilePath);
-            //console.log("Temporary KML file removed successfully.");
+            await fsPromises.unlink(temporaryGeoJSONFilePath);
+            //console.log("Temporary GeoJSON file removed successfully.");
           } catch (unlinkError) {
-            console.error("Error removing temporary KML file:", unlinkError);
+            console.error(
+              "Error removing temporary GeoJSON file:",
+              unlinkError
+            );
           }
         }
       }
