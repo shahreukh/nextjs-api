@@ -4,6 +4,7 @@ import { promisify } from "util";
 import { exec } from "child_process";
 import { promises as fsPromises } from "fs";
 import cors from "cors";
+import proj4 from "proj4";
 
 const corsMiddleware = cors({
   origin: "*",
@@ -25,6 +26,15 @@ export const config = {
     bodyParser: false,
     responseLimit: false,
   },
+};
+
+const utmToWgs84 = (coordinates) => {
+  // Define the UTM and WGS84 coordinate systems
+  const utmProjection = "+proj=utm +33 +ellps=WGS84";
+  const wgs84Projection = "+proj=longlat +datum=WGS84";
+
+  // Convert UTM to WGS84
+  return proj4(utmProjection, wgs84Projection, coordinates);
 };
 
 const handleApiRequest = async (req: NextApiRequest, res: NextApiResponse) => {
@@ -57,9 +67,22 @@ const handleApiRequest = async (req: NextApiRequest, res: NextApiResponse) => {
           temporaryGeoJSONFilePath,
           "utf-8"
         );
+
+        // Parse the GeoJSON to modify the coordinates
+        const geoJsonObject = JSON.parse(convertedGeoJSON);
+        if (geoJsonObject.geometry && geoJsonObject.geometry.coordinates) {
+          geoJsonObject.geometry.coordinates =
+            geoJsonObject.geometry.coordinates.map((coordinates) =>
+              utmToWgs84(coordinates)
+            );
+        }
+
+        // Convert the modified GeoJSON back to a string
+        const modifiedGeoJSON = JSON.stringify(geoJsonObject);
+
         res.setHeader("Content-Type", "application/json");
-        res.status(200).send(convertedGeoJSON);
-        console.log(convertedGeoJSON);
+        res.status(200).send(modifiedGeoJSON);
+        console.log("D", modifiedGeoJSON);
         await fsPromises.unlink(dxfFilePath);
         //console.log("Uploaded DXF file removed successfully.");
       } catch (error) {
