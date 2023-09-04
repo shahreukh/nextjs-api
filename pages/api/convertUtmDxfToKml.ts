@@ -4,6 +4,7 @@ import { promisify } from "util";
 import { exec } from "child_process";
 import { promises as fsPromises } from "fs";
 import cors from "cors";
+import proj4 from "proj4";
 
 const corsMiddleware = cors({
   origin: "*",
@@ -25,6 +26,17 @@ export const config = {
     bodyParser: false,
     responseLimit: false,
   },
+};
+
+const utmProjection = "+proj=utm +zone=37 +datum=WGS84 +units=m +no_defs"; // Replace with your UTM projection parameters
+const wgs84Projection = "+proj=longlat +datum=WGS84"; // WGS84 projection
+
+const utmToWgs84 = (utmCoordinates) => {
+  const utmPoint = proj4(utmProjection, wgs84Projection, utmCoordinates);
+  return {
+    latitude: utmPoint[0], // Latitude is the second value in the array
+    longitude: utmPoint[1], // Longitude is the first value in the array
+  };
 };
 
 const handleApiRequest = async (req: NextApiRequest, res: NextApiResponse) => {
@@ -58,9 +70,30 @@ const handleApiRequest = async (req: NextApiRequest, res: NextApiResponse) => {
           temporaryKmlFilePath,
           "utf-8"
         );
+
+        // Correctly parse and convert UTM coordinates to WGS84
+        const updatedKml = convertedKml.replace(
+          /<coordinates>(.*?)<\/coordinates>/g,
+          (match, coordinates) => {
+            const coordinateStrings = coordinates
+              .split(" ")
+              .map((coordString) => {
+                const [x, y, z] = coordString.split(",");
+                const utmCoordinates = [parseFloat(x), parseFloat(y)];
+                const wgs84Coordinates = utmToWgs84(utmCoordinates);
+                return `${wgs84Coordinates.longitude},${
+                  wgs84Coordinates.latitude
+                },${z || "0"},`;
+              });
+
+            // Join the coordinates with spaces and add a comma separator
+            return `<coordinates>${coordinateStrings.join(" ")}</coordinates>`;
+          }
+        );
+
         res.setHeader("Content-Type", "application/xml");
-        res.status(200).send(convertedKml);
-        //console.log(convertedKml);
+        res.status(200).send(updatedKml);
+        console.log(updatedKml);
         await fsPromises.unlink(dxfFilePath);
       } catch (error) {
         console.error("Error:", error);
@@ -73,7 +106,6 @@ const handleApiRequest = async (req: NextApiRequest, res: NextApiResponse) => {
             console.error("Error removing temporary KML file:", unlinkError);
           }
         }
-
         if (dxfFilePath) {
           try {
             await fsPromises.unlink(dxfFilePath);
