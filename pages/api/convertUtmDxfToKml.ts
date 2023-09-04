@@ -34,8 +34,8 @@ const wgs84Projection = "+proj=longlat +datum=WGS84"; // WGS84 projection
 const utmToWgs84 = (utmCoordinates) => {
   const utmPoint = proj4(utmProjection, wgs84Projection, utmCoordinates);
   return {
-    latitude: utmPoint[0], // Latitude is the second value in the array
-    longitude: utmPoint[1], // Longitude is the first value in the array
+    latitude: utmPoint[1], // Latitude is the second value in the array
+    longitude: utmPoint[0], // Longitude is the first value in the array
   };
 };
 
@@ -62,15 +62,15 @@ const handleApiRequest = async (req: NextApiRequest, res: NextApiResponse) => {
         dxfFilePath = req.file.path;
         temporaryKmlFilePath = `uploads/temp.kml`;
 
-        const ogr2ogrCommand = `ogr2ogr -f "KML" ${temporaryKmlFilePath} ${dxfFilePath}`;
+        const ogr2ogrCommand = `ogr2ogr -f "KML" ${temporaryKmlFilePath} ${dxfFilePath} -t_srs "32637"`;
 
         await execPromise(ogr2ogrCommand);
-
+        console.log("DDD", temporaryKmlFilePath);
         const convertedKml = await fsPromises.readFile(
           temporaryKmlFilePath,
           "utf-8"
         );
-
+        console.log("why", convertedKml);
         // Correctly parse and convert UTM coordinates to WGS84
         const updatedKml = convertedKml.replace(
           /<coordinates>(.*?)<\/coordinates>/g,
