@@ -28,17 +28,6 @@ export const config = {
   },
 };
 
-const utmProjection = "+proj=utm +zone=37 +datum=WGS84 +units=m +no_defs"; // Replace with your UTM projection parameters
-const wgs84Projection = "+proj=longlat +datum=WGS84"; // WGS84 projection
-
-const utmToWgs84 = (utmCoordinates) => {
-  const utmPoint = proj4(utmProjection, wgs84Projection, utmCoordinates);
-  return {
-    latitude: utmPoint[1], // Latitude is the second value in the array
-    longitude: utmPoint[0], // Longitude is the first value in the array
-  };
-};
-
 const handleApiRequest = async (req: NextApiRequest, res: NextApiResponse) => {
   if (req.method === "OPTIONS") {
     res.status(200).end();
@@ -48,6 +37,7 @@ const handleApiRequest = async (req: NextApiRequest, res: NextApiResponse) => {
   corsMiddleware(req, res, async () => {
     await upload.single("dxfFile")(req, res, async (err) => {
       if (err) {
+        console.log("File upload error:", err);
         return res.status(400).json({ error: "File upload error." });
       }
 
@@ -56,44 +46,34 @@ const handleApiRequest = async (req: NextApiRequest, res: NextApiResponse) => {
 
       try {
         if (!req.file) {
+          console.log("No DXF file uploaded.");
           return res.status(400).json({ error: "No DXF file uploaded." });
         }
 
         dxfFilePath = req.file.path;
         temporaryKmlFilePath = `uploads/temp.kml`;
 
-        const ogr2ogrCommand = `ogr2ogr -f "KML" ${temporaryKmlFilePath} ${dxfFilePath} -t_srs "32637"`;
+        const ogr2ogrCommand = `ogr2ogr -f "KML" ${temporaryKmlFilePath} ${dxfFilePath} `;
+
+        console.log("Running ogr2ogr command:", ogr2ogrCommand);
 
         await execPromise(ogr2ogrCommand);
+
         console.log("DDD", temporaryKmlFilePath);
-        const convertedKml = await fsPromises.readFile(
+
+        const kmlContent = await fsPromises.readFile(
           temporaryKmlFilePath,
           "utf-8"
         );
-        console.log("why", convertedKml);
-        // Correctly parse and convert UTM coordinates to WGS84
-        const updatedKml = convertedKml.replace(
-          /<coordinates>(.*?)<\/coordinates>/g,
-          (match, coordinates) => {
-            const coordinateStrings = coordinates
-              .split(" ")
-              .map((coordString) => {
-                const [x, y, z] = coordString.split(",");
-                const utmCoordinates = [parseFloat(x), parseFloat(y)];
-                const wgs84Coordinates = utmToWgs84(utmCoordinates);
-                return `${wgs84Coordinates.longitude},${
-                  wgs84Coordinates.latitude
-                },${z || "0"},`;
-              });
+        console.log("Original KML:", kmlContent);
 
-            // Join the coordinates with spaces and add a comma separator
-            return `<coordinates>${coordinateStrings.join(" ")}</coordinates>`;
-          }
-        );
+        // Parse and convert KML coordinates
+        const convertedKml = convertKmlCoordinates(kmlContent);
 
         res.setHeader("Content-Type", "application/xml");
-        res.status(200).send(updatedKml);
-        console.log(updatedKml);
+        res.status(200).send(convertedKml);
+        console.log("Converted KML:", convertedKml);
+
         await fsPromises.unlink(dxfFilePath);
       } catch (error) {
         console.error("Error:", error);
@@ -102,6 +82,7 @@ const handleApiRequest = async (req: NextApiRequest, res: NextApiResponse) => {
         if (temporaryKmlFilePath) {
           try {
             await fsPromises.unlink(temporaryKmlFilePath);
+            console.log("Temporary KML file removed.");
           } catch (unlinkError) {
             console.error("Error removing temporary KML file:", unlinkError);
           }
@@ -109,6 +90,7 @@ const handleApiRequest = async (req: NextApiRequest, res: NextApiResponse) => {
         if (dxfFilePath) {
           try {
             await fsPromises.unlink(dxfFilePath);
+            console.log("DXF file removed.");
           } catch (unlinkError) {
             console.error("Error removing DXF file:", unlinkError);
           }
@@ -117,5 +99,65 @@ const handleApiRequest = async (req: NextApiRequest, res: NextApiResponse) => {
     });
   });
 };
+
+function convertKmlCoordinates(kmlContent: string) {
+  const convertedKml = kmlContent.replace(
+    /<coordinates>(.*?)<\/coordinates>/g,
+    (match, coordinates) => {
+      // Add these log statements for debugging
+      console.log("Coordinates before conversion:");
+      console.log(coordinates);
+
+      const coordinateStrings = coordinates
+        .split(" ")
+        .map((coordString: string) => {
+          // Specify the type of coordString
+          const [easting, northing, elevation] = coordString.split(",");
+          console.log("Easting:", easting);
+          console.log("Northing:", northing);
+          console.log("Elevation:", elevation);
+
+          const [lon, lat] = convertToWgs84(easting, northing); // Convert easting/northing to WGS84 lat/lon
+          console.log("Lon:", lon);
+          console.log("Lat:", lat);
+          return `${lon},${lat},${elevation || "0"}`;
+        });
+
+      return `<coordinates>${coordinateStrings.join(" ")}</coordinates>`;
+    }
+  );
+
+  return convertedKml;
+}
+
+proj4.defs(
+  "EPSG:32737",
+  "+proj=utm +zone=37 +south +datum=WGS84 +units=m +no_defs"
+);
+
+// Function to convert easting/northing to WGS84 lat/lon
+function convertToWgs84(easting, northing) {
+  const fromProjection = "EPSG:32737"; // Replace with the correct EPSG code
+  const toProjection = "EPSG:4326"; // WGS84 projection
+
+  try {
+    // Parse easting and northing values as floats
+    const eastingFloat = parseFloat(easting);
+    const northingFloat = parseFloat(northing);
+
+    if (isNaN(eastingFloat) || isNaN(northingFloat)) {
+      throw new Error("Invalid easting or northing values.");
+    }
+
+    const result = proj4(fromProjection, toProjection, [
+      eastingFloat,
+      northingFloat,
+    ]);
+    return result;
+  } catch (error) {
+    console.error("Projection Error:", error);
+    throw error;
+  }
+}
 
 export default handleApiRequest;
