@@ -58,8 +58,8 @@ const handleApiRequest = async (req: NextApiRequest, res: NextApiResponse) => {
 
         const dxfFilePath = req.file.path;
         temporaryGeoJSONFilePath = `uploads/temp.geojson`;
-
-        const ogr2ogrCommand = `ogr2ogr -f "GeoJSON" ${temporaryGeoJSONFilePath} ${dxfFilePath}`;
+        const utmZone = "36"; // Replace with your UTM zone
+        const ogr2ogrCommand = `ogr2ogr -f "GeoJSON" -t_srs EPSG:${utmZone} ${temporaryGeoJSONFilePath} ${dxfFilePath}`;
 
         await execPromise(ogr2ogrCommand);
 

@@ -34,7 +34,7 @@ const handleApiRequest = async (req: NextApiRequest, res: NextApiResponse) => {
   }
 
   corsMiddleware(req, res, async () => {
-    await upload.single("dxfFile")(req, res, async (err) => {
+    await upload.single("dgnFile")(req, res, async (err) => {
       if (err) {
         console.log("File upload error:", err);
         return res.status(400).json({ error: "File upload error." });
@@ -42,7 +42,7 @@ const handleApiRequest = async (req: NextApiRequest, res: NextApiResponse) => {
       const zone = req.body.selectedZone;
       const hemisphere = req.body.selectedHemisphere;
       let temporaryKmlFilePath;
-      let dxfFilePath = null;
+      let dgnFilePath = null;
       function getEPSGCode(zone: number, hemisphere: "N" | "S"): number {
         const baseEPSG = hemisphere === "N" ? 326 : 327;
 
@@ -55,14 +55,14 @@ const handleApiRequest = async (req: NextApiRequest, res: NextApiResponse) => {
 
       try {
         if (!req.file) {
-          console.log("No DXF file uploaded.");
-          return res.status(400).json({ error: "No DXF file uploaded." });
+          console.log("No DGN file uploaded.");
+          return res.status(400).json({ error: "No DGN file uploaded." });
         }
 
-        dxfFilePath = req.file.path;
+        dgnFilePath = req.file.path;
         temporaryKmlFilePath = `uploads/temp.kml`;
 
-        const ogr2ogrCommand = `ogr2ogr -f "KML" -s_srs EPSG:${epsgCode} -t_srs EPSG:4326 ${temporaryKmlFilePath} ${dxfFilePath}`;
+        const ogr2ogrCommand = `ogr2ogr -f "KML" -s_srs EPSG:${epsgCode} -t_srs EPSG:4326 ${temporaryKmlFilePath} ${dgnFilePath}`;
 
         //console.log("Running ogr2ogr command:", ogr2ogrCommand);
 
@@ -87,12 +87,12 @@ const handleApiRequest = async (req: NextApiRequest, res: NextApiResponse) => {
             console.error("Error removing temporary KML file:", unlinkError);
           }
         }
-        if (dxfFilePath) {
+        if (dgnFilePath) {
           try {
-            await fsPromises.unlink(dxfFilePath);
-            //console.log("DXF file removed.");
+            await fsPromises.unlink(dgnFilePath);
+            //console.log("DGN file removed.");
           } catch (unlinkError) {
-            console.error("Error removing DXF file:", unlinkError);
+            console.error("Error removing DGN file:", unlinkError);
           }
         }
       }
