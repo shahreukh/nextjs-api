@@ -63,7 +63,6 @@ const handleApiRequest = async (req: NextApiRequest, res: NextApiResponse) => {
         temporaryKmlFilePath = `uploads/temp.kml`;
 
         const ogr2ogrCommand = `ogr2ogr -f "KML" -s_srs EPSG:${epsgCode} -t_srs EPSG:4326 ${temporaryKmlFilePath} ${dgnFilePath}`;
-
         //console.log("Running ogr2ogr command:", ogr2ogrCommand);
 
         await execPromise(ogr2ogrCommand);
