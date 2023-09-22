@@ -9,11 +9,15 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@turf/collect": "^6.5.0",
+    "@turf/helpers": "^6.5.0",
     "@types/node": "^20.5.4",
     "@types/react": "18.2.21",
     "@types/react-dom": "18.2.7",
+    "archiver": "^6.0.1",
     "autoprefixer": "10.4.15",
     "axios": "^1.4.0",
+    "body-parser": "^1.20.2",
     "child_process": "^1.0.2",
     "cors": "^2.8.5",
     "dxf2json": "^1.0.3",
@@ -21,6 +25,7 @@
     "eslint": "8.47.0",
     "eslint-config-next": "13.4.19",
     "execa": "^8.0.1",
+    "express": "^4.18.2",
     "formidable": "^3.5.0",
     "fs": "^0.0.1-security",
     "multer": "^1.4.5-lts.1",
@@ -35,10 +40,12 @@
     "utm": "^1.1.1"
   },
   "devDependencies": {
+    "@types/archiver": "^5.3.2",
     "@types/cors": "^2.8.13",
     "@types/formidable": "^3.4.1",
     "@types/multer": "^1.4.7",
     "@types/multiparty": "^0.0.33",
-    "@types/proj4": "^2.5.2"
+    "@types/proj4": "^2.5.2",
+    "@types/xmldom": "^0.1.32"
   }
 }
