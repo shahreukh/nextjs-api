@@ -2,6 +2,7 @@ import { NextApiRequest, NextApiResponse } from "next";
 import { spawn } from "child_process";
 import fs from "fs";
 import path from "path";
+import archiver from "archiver";
 
 const handleSHPData = async (req: NextApiRequest, res: NextApiResponse) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -15,12 +16,11 @@ const handleSHPData = async (req: NextApiRequest, res: NextApiResponse) => {
 
   if (req.method === "POST") {
     try {
-      const { geojsonData } = req.body;
+      const { kmlData } = req.body;
 
-      console.log("Received GeoJSON data:", geojsonData);
+      console.log("Received GeoJSON data:", kmlData);
 
-      // Convert GeoJSON to a JSON string
-      const geoJsonString = JSON.stringify(geojsonData);
+      const geoJsonString = JSON.stringify(kmlData);
       console.log(geoJsonString);
 
       // Check if the /tmp directory exists, and create it if it doesn't
@@ -44,40 +44,34 @@ const handleSHPData = async (req: NextApiRequest, res: NextApiResponse) => {
       ogr2ogr.stdin.write(geoJsonString);
       ogr2ogr.stdin.end();
 
-      let dataBuffer = ""; // Buffer to store stdout data
-
-      ogr2ogr.stdout.on("data", (data) => {
-        dataBuffer += data.toString(); // Collect stdout data
+      // Create a ZIP stream
+      const archive = archiver("zip", {
+        zlib: { level: 9 }, // Compression level
       });
 
-      ogr2ogr.stderr.on("data", (data) => {
-        console.error(`ogr2ogr stderr: ${data}`);
+      // Pipe the ZIP stream to the response
+      archive.pipe(res);
+
+      // Add Shapefile files to the ZIP stream
+      archive.file(path.join(tmpDirectory, "output.shp"), {
+        name: "output.shp",
       });
-
-      ogr2ogr.on("close", (code) => {
-        if (code === 0) {
-          console.log("Conversion successful.");
-          const shpFilePath = path.join(tmpDirectory, "output.shp");
-
-          // Read the SHP file and respond with its content
-          const shpData = fs.readFileSync(shpFilePath);
-
-          // Set the response content type to SHP
-          res.setHeader("Content-Type", "application/zip");
-
-          // Respond with the SHP data
-          res.status(200).send(shpData);
-        } else {
-          console.error(`ogr2ogr process exited with code ${code}`);
-          res.status(500).json({ error: "Failed to convert GeoJSON to SHP." });
-        }
+      archive.file(path.join(tmpDirectory, "output.shx"), {
+        name: "output.shx",
       });
-
-      // Handle any errors that occur during the ogr2ogr process
-      ogr2ogr.on("error", (error) => {
-        console.error("ogr2ogr error:", error);
-        res.status(500).json({ error: "Failed to convert GeoJSON to SHP." });
+      archive.file(path.join(tmpDirectory, "output.dbf"), {
+        name: "output.dbf",
       });
+      // Add other related files as needed
+
+      // Finalize the ZIP archive
+      archive.finalize();
+
+      // Cleanup: Remove temporary files
+      // Note: You might want to handle cleanup differently based on your requirements
+      // fs.unlinkSync(path.join(tmpDirectory, "output.shp"));
+      // fs.unlinkSync(path.join(tmpDirectory, "output.shx"));
+      // fs.unlinkSync(path.join(tmpDirectory, "output.dbf"));
     } catch (error) {
       console.error("Error while processing GeoJSON data:", error);
       res.status(500).json({ error: "Failed to process GeoJSON data." });
