@@ -3,7 +3,7 @@ import { spawn } from "child_process";
 import fs from "fs";
 import path from "path";
 
-const handleKMLData = async (req: NextApiRequest, res: NextApiResponse) => {
+const handleSHPData = async (req: NextApiRequest, res: NextApiResponse) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -15,34 +15,39 @@ const handleKMLData = async (req: NextApiRequest, res: NextApiResponse) => {
 
   if (req.method === "POST") {
     try {
-      const { kmlData } = req.body;
+      const { geojsonData } = req.body;
 
-      console.log("Received GeoJSON data:", kmlData);
+      console.log("Received GeoJSON data:", geojsonData);
 
-      const geoJsonString = JSON.stringify(kmlData);
+      // Convert GeoJSON to a JSON string
+      const geoJsonString = JSON.stringify(geojsonData);
       console.log(geoJsonString);
 
+      // Check if the /tmp directory exists, and create it if it doesn't
       const tmpDirectory = "/tmp";
       if (!fs.existsSync(tmpDirectory)) {
         fs.mkdirSync(tmpDirectory);
       }
 
+      // Use ogr2ogr to convert GeoJSON to SHP
       const ogr2ogr = spawn("ogr2ogr", [
         "-f",
-        "KML",
-        path.join(tmpDirectory, "output.kml"),
-        "/vsistdin/",
+        "ESRI Shapefile", // Specify SHP format
+        path.join(tmpDirectory, "output.shp"), // Output SHP file path
+        "/vsistdin/", // Input from stdin
       ]);
 
+      // Log the command being executed
       console.log("ogr2ogr command:", ogr2ogr.spawnargs.join(" "));
 
+      // Send GeoJSON data as a string to ogr2ogr's stdin
       ogr2ogr.stdin.write(geoJsonString);
       ogr2ogr.stdin.end();
 
-      let dataBuffer = "";
+      let dataBuffer = ""; // Buffer to store stdout data
 
       ogr2ogr.stdout.on("data", (data) => {
-        dataBuffer += data.toString();
+        dataBuffer += data.toString(); // Collect stdout data
       });
 
       ogr2ogr.stderr.on("data", (data) => {
@@ -52,28 +57,26 @@ const handleKMLData = async (req: NextApiRequest, res: NextApiResponse) => {
       ogr2ogr.on("close", (code) => {
         if (code === 0) {
           console.log("Conversion successful.");
-          const kmlFilePath = path.join(tmpDirectory, "output.kml");
+          const shpFilePath = path.join(tmpDirectory, "output.shp");
 
-          fs.readFile(kmlFilePath, "utf8", (err, kmlContent) => {
-            if (err) {
-              console.error("Error reading KML file:", err);
-              res.status(500).json({ error: "Failed to read KML file." });
-            } else {
-              console.log("KML Content:");
-              console.log(kmlContent);
+          // Read the SHP file and respond with its content
+          const shpData = fs.readFileSync(shpFilePath);
 
-              res.status(200).json({ kmlData: kmlContent });
-            }
-          });
+          // Set the response content type to SHP
+          res.setHeader("Content-Type", "application/zip");
+
+          // Respond with the SHP data
+          res.status(200).send(shpData);
         } else {
           console.error(`ogr2ogr process exited with code ${code}`);
-          res.status(500).json({ error: "Failed to convert GeoJSON to KML." });
+          res.status(500).json({ error: "Failed to convert GeoJSON to SHP." });
         }
       });
 
+      // Handle any errors that occur during the ogr2ogr process
       ogr2ogr.on("error", (error) => {
         console.error("ogr2ogr error:", error);
-        res.status(500).json({ error: "Failed to convert GeoJSON to KML." });
+        res.status(500).json({ error: "Failed to convert GeoJSON to SHP." });
       });
     } catch (error) {
       console.error("Error while processing GeoJSON data:", error);
@@ -84,4 +87,4 @@ const handleKMLData = async (req: NextApiRequest, res: NextApiResponse) => {
   }
 };
 
-export default handleKMLData;
+export default handleSHPData;
