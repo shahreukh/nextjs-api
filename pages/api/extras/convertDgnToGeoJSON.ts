@@ -32,7 +32,7 @@ const handleApiRequest = async (req: NextApiRequest, res: NextApiResponse) => {
 
   return corsMiddleware(req, res, async () => {
     try {
-      await upload.single("dgnFile")(req, res, async (err) => {
+      upload.single("dgnFile")(req, res, async (err) => {
         if (err) {
           return res.status(400).json({ error: "File upload error." });
         }
@@ -42,7 +42,7 @@ const handleApiRequest = async (req: NextApiRequest, res: NextApiResponse) => {
         }
 
         const dgnFilePath = req.file.path;
-        const temporaryGeoJSONFilePath = `uploads/temp.geojson`; // Use GeoJSON format
+        const temporaryGeoJSONFilePath = `uploads/temp.geojson`;
 
         const ogr2ogrCommand = `ogr2ogr -f "GeoJSON" ${temporaryGeoJSONFilePath} ${dgnFilePath}`;
 
@@ -68,7 +68,7 @@ const handleApiRequest = async (req: NextApiRequest, res: NextApiResponse) => {
               temporaryGeoJSONFilePath,
               "utf-8"
             );
-            res.setHeader("Content-Type", "application/json"); // Set the content type to GeoJSON
+            res.setHeader("Content-Type", "application/json");
             res.status(200).send(convertedGeoJSON);
 
             // Delete the uploaded DGN file
