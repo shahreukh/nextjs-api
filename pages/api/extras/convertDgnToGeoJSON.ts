@@ -4,6 +4,10 @@ import { exec } from "child_process";
 import { promises as fsPromises } from "fs";
 import cors from "cors";
 
+interface MulterFileRequest extends NextApiRequest {
+  file: Express.Multer.File;
+}
+
 const corsMiddleware = cors({
   origin: "*",
   methods: "POST",
@@ -24,7 +28,10 @@ export const config = {
   },
 };
 
-const handleApiRequest = async (req: NextApiRequest, res: NextApiResponse) => {
+const handleApiRequest = async (
+  req: MulterFileRequest,
+  res: NextApiResponse
+) => {
   if (req.method === "OPTIONS") {
     res.status(200).end();
     return;

@@ -4,6 +4,27 @@ import fs from "fs";
 import path from "path";
 import archiver from "archiver";
 
+const flattenGeometryCollection = (geometryCollection) => {
+  if (
+    geometryCollection.type === "GeometryCollection" &&
+    geometryCollection.geometries
+  ) {
+    const polygons = geometryCollection.geometries.map((geometry) => {
+      if (geometry.type === "Polygon") {
+        return geometry.coordinates;
+      }
+      return null; // Skip other geometry types for simplicity
+    });
+
+    return {
+      type: "MultiPolygon",
+      coordinates: polygons.filter((polygon) => polygon !== null),
+    };
+  }
+
+  return geometryCollection;
+};
+
 const handleSHPData = async (req: NextApiRequest, res: NextApiResponse) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST");
@@ -20,7 +41,16 @@ const handleSHPData = async (req: NextApiRequest, res: NextApiResponse) => {
 
       console.log("Received GeoJSON data:", kmlData);
 
-      const geoJsonString = JSON.stringify(kmlData);
+      // Flatten GeometryCollection to MultiPolygon
+      const flattenedGeoJson = {
+        ...kmlData,
+        features: kmlData.features.map((feature) => ({
+          ...feature,
+          geometry: flattenGeometryCollection(feature.geometry),
+        })),
+      };
+
+      const geoJsonString = JSON.stringify(flattenedGeoJson);
       console.log(geoJsonString);
 
       // Check if the /tmp directory exists, and create it if it doesn't
@@ -43,6 +73,31 @@ const handleSHPData = async (req: NextApiRequest, res: NextApiResponse) => {
       // Send GeoJSON data as a string to ogr2ogr's stdin
       ogr2ogr.stdin.write(geoJsonString);
       ogr2ogr.stdin.end();
+
+      // Log the content of the SHP files after conversion
+      ogr2ogr.on("close", (code) => {
+        if (code === 0) {
+          // Read and log the content of the SHP files
+          const shpContent = fs.readFileSync(
+            path.join(tmpDirectory, "output.shp"),
+            "utf-8"
+          );
+          const shxContent = fs.readFileSync(
+            path.join(tmpDirectory, "output.shx"),
+            "utf-8"
+          );
+          const dbfContent = fs.readFileSync(
+            path.join(tmpDirectory, "output.dbf"),
+            "utf-8"
+          );
+
+          console.log("SHP Content:", shpContent);
+          console.log("SHX Content:", shxContent);
+          console.log("DBF Content:", dbfContent);
+        } else {
+          console.error("ogr2ogr process exited with code", code);
+        }
+      });
 
       // Create a ZIP stream
       const archive = archiver("zip", {
