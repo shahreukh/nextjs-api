@@ -1,9 +1,72 @@
 import { NextApiRequest, NextApiResponse } from "next";
+import { exec } from "child_process";
+import fs from "fs";
+import path from "path";
+
+const handler = async (req: NextApiRequest, res: NextApiResponse) => {
+  // Enable CORS for this API route
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+  if (req.method === "OPTIONS") {
+    // Preflight request, respond successfully
+    res.status(200).end();
+    return;
+  }
+
+  try {
+    const { geoJsonData } = req.body;
+
+    if (!geoJsonData) {
+      return res.status(400).json({ error: "Invalid GeoJSON data." });
+    }
+
+    // Save GeoJSON to a temporary file
+    const geoJsonFileName = "temp.geojson";
+    fs.writeFileSync(geoJsonFileName, JSON.stringify(geoJsonData));
+
+    // Convert GeoJSON to DGN using ogr2ogr
+    const dgnFileName = "uploads/output.dgn"; // Specify the uploads folder
+    const ogr2ogrDgnCommand = `ogr2ogr -f DGN ${dgnFileName} ${geoJsonFileName}`;
+    exec(ogr2ogrDgnCommand, (dgnError, dgnStdout, dgnStderr) => {
+      console.log("ogr2ogr DGN output:", dgnStdout);
+      if (dgnError) {
+        console.error(`Error during DGN conversion: ${dgnStderr}`);
+        return res.status(500).json({ error: "Error during DGN conversion." });
+      }
+
+      // Send DGN file directly from the uploads folder
+      const dgnFilePath = path.join(process.cwd(), dgnFileName); // Use process.cwd() to get the current working directory
+      const dgnStream = fs.createReadStream(dgnFilePath);
+
+      // Set the appropriate headers for file download
+      res.setHeader("Content-Type", "application/octet-stream");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename=${encodeURIComponent(path.basename(dgnFilePath))}`
+      );
+
+      // Pipe the file stream directly to the response
+      dgnStream.pipe(res);
+
+      // Clean up temporary files
+      fs.unlinkSync(geoJsonFileName);
+    });
+  } catch (error) {
+    console.error("An error occurred during conversion:", error);
+    res.status(500).json({ error: "Internal server error." });
+  }
+};
+
+export default handler;
+
+import { NextApiRequest, NextApiResponse } from "next";
 import { spawn } from "child_process";
 import fs from "fs";
-import path from "path"; // Import the 'path' module
+import path from "path";
 
-const handleKMLData = async (req: NextApiRequest, res: NextApiResponse) => {
+const handleDGNData = async (req: NextApiRequest, res: NextApiResponse) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -15,39 +78,34 @@ const handleKMLData = async (req: NextApiRequest, res: NextApiResponse) => {
 
   if (req.method === "POST") {
     try {
-      const { kmlData } = req.body;
+      const { geoJsonData } = req.body;
 
-      console.log("Received GeoJSON data:", kmlData);
+      console.log("Received GeoJSON data:", geoJsonData);
 
-      // Convert GeoJSON to a JSON string
-      const geoJsonString = JSON.stringify(kmlData);
+      const geoJsonString = JSON.stringify(geoJsonData);
       console.log(geoJsonString);
 
-      // Check if the /tmp directory exists, and create it if it doesn't
       const tmpDirectory = "/tmp";
       if (!fs.existsSync(tmpDirectory)) {
         fs.mkdirSync(tmpDirectory);
       }
 
-      // Use ogr2ogr to convert GeoJSON to KML
       const ogr2ogr = spawn("ogr2ogr", [
         "-f",
-        "KML",
-        path.join(tmpDirectory, "output.kml"), // Output KML file path
-        "/vsistdin/", // Input from stdin
+        "DGN",
+        path.join(tmpDirectory, "output.dgn"),
+        "/vsistdin/",
       ]);
 
-      // Log the command being executed
       console.log("ogr2ogr command:", ogr2ogr.spawnargs.join(" "));
 
-      // Send GeoJSON data as a string to ogr2ogr's stdin
       ogr2ogr.stdin.write(geoJsonString);
       ogr2ogr.stdin.end();
 
-      let dataBuffer = ""; // Buffer to store stdout data
+      let dataBuffer = "";
 
       ogr2ogr.stdout.on("data", (data) => {
-        dataBuffer += data.toString(); // Collect stdout data
+        dataBuffer += data.toString();
       });
 
       ogr2ogr.stderr.on("data", (data) => {
@@ -57,31 +115,28 @@ const handleKMLData = async (req: NextApiRequest, res: NextApiResponse) => {
       ogr2ogr.on("close", (code) => {
         if (code === 0) {
           console.log("Conversion successful.");
-          const kmlFilePath = path.join(tmpDirectory, "output.kml");
+          const dgnFilePath = path.join(tmpDirectory, "output.dgn");
 
-          // Read the KML file and log its content
-          fs.readFile(kmlFilePath, "utf8", (err, kmlContent) => {
+          fs.readFile(dgnFilePath, "utf8", (err, dgnContent) => {
             if (err) {
-              console.error("Error reading KML file:", err);
-              res.status(500).json({ error: "Failed to read KML file." });
+              console.error("Error reading DGN file:", err);
+              res.status(500).json({ error: "Failed to read DGN file." });
             } else {
-              console.log("KML Content:");
-              console.log(kmlContent);
+              console.log("DGN Content:");
+              console.log(dgnContent);
 
-              // Respond with the KML file path
-              res.status(200).json({ kmlData: kmlContent });
+              res.status(200).json({ dgnData: dgnContent });
             }
           });
         } else {
           console.error(`ogr2ogr process exited with code ${code}`);
-          res.status(500).json({ error: "Failed to convert GeoJSON to KML." });
+          res.status(500).json({ error: "Failed to convert GeoJSON to DGN." });
         }
       });
 
-      // Handle any errors that occur during the ogr2ogr process
       ogr2ogr.on("error", (error) => {
         console.error("ogr2ogr error:", error);
-        res.status(500).json({ error: "Failed to convert GeoJSON to KML." });
+        res.status(500).json({ error: "Failed to convert GeoJSON to DGN." });
       });
     } catch (error) {
       console.error("Error while processing GeoJSON data:", error);
@@ -92,4 +147,4 @@ const handleKMLData = async (req: NextApiRequest, res: NextApiResponse) => {
   }
 };
 
-export default handleKMLData;
+export default handleDGNData;

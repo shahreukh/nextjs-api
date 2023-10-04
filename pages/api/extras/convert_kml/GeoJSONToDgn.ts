@@ -1,9 +1,9 @@
 import { NextApiRequest, NextApiResponse } from "next";
-import { spawn } from "child_process";
+import { exec } from "child_process";
 import fs from "fs";
 import path from "path";
 
-const handleDGNData = async (req: NextApiRequest, res: NextApiResponse) => {
+const handler = async (req: NextApiRequest, res: NextApiResponse) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -13,75 +13,42 @@ const handleDGNData = async (req: NextApiRequest, res: NextApiResponse) => {
     return;
   }
 
-  if (req.method === "POST") {
-    try {
-      const { geoJsonData } = req.body;
+  try {
+    const { geoJsonData } = req.body;
 
-      console.log("Received GeoJSON data:", geoJsonData);
+    if (!geoJsonData) {
+      return res.status(400).json({ error: "Invalid GeoJSON data." });
+    }
 
-      const geoJsonString = JSON.stringify(geoJsonData);
-      console.log(geoJsonString);
+    const geoJsonFileName = "temp.geojson";
+    fs.writeFileSync(geoJsonFileName, JSON.stringify(geoJsonData));
 
-      const tmpDirectory = "/tmp";
-      if (!fs.existsSync(tmpDirectory)) {
-        fs.mkdirSync(tmpDirectory);
+    const dgnFileName = "uploads/output.dgn";
+    const ogr2ogrDgnCommand = `ogr2ogr -f DGN ${dgnFileName} ${geoJsonFileName}`;
+    exec(ogr2ogrDgnCommand, (dgnError, dgnStdout, dgnStderr) => {
+      console.log("ogr2ogr DGN output:", dgnStdout);
+      if (dgnError) {
+        console.error(`Error during DGN conversion: ${dgnStderr}`);
+        return res.status(500).json({ error: "Error during DGN conversion." });
       }
 
-      const ogr2ogr = spawn("ogr2ogr", [
-        "-f",
-        "DGN",
-        path.join(tmpDirectory, "output.dgn"),
-        "/vsistdin/",
-      ]);
+      const dgnFilePath = path.join(process.cwd(), dgnFileName);
+      const dgnStream = fs.createReadStream(dgnFilePath);
 
-      console.log("ogr2ogr command:", ogr2ogr.spawnargs.join(" "));
+      res.setHeader("Content-Type", "application/octet-stream");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename=${encodeURIComponent(path.basename(dgnFilePath))}`
+      );
 
-      ogr2ogr.stdin.write(geoJsonString);
-      ogr2ogr.stdin.end();
+      dgnStream.pipe(res);
 
-      let dataBuffer = "";
-
-      ogr2ogr.stdout.on("data", (data) => {
-        dataBuffer += data.toString();
-      });
-
-      ogr2ogr.stderr.on("data", (data) => {
-        console.error(`ogr2ogr stderr: ${data}`);
-      });
-
-      ogr2ogr.on("close", (code) => {
-        if (code === 0) {
-          console.log("Conversion successful.");
-          const dgnFilePath = path.join(tmpDirectory, "output.dgn");
-
-          fs.readFile(dgnFilePath, "utf8", (err, dgnContent) => {
-            if (err) {
-              console.error("Error reading DGN file:", err);
-              res.status(500).json({ error: "Failed to read DGN file." });
-            } else {
-              console.log("DGN Content:");
-              console.log(dgnContent);
-
-              res.status(200).json({ dgnData: dgnContent });
-            }
-          });
-        } else {
-          console.error(`ogr2ogr process exited with code ${code}`);
-          res.status(500).json({ error: "Failed to convert GeoJSON to DGN." });
-        }
-      });
-
-      ogr2ogr.on("error", (error) => {
-        console.error("ogr2ogr error:", error);
-        res.status(500).json({ error: "Failed to convert GeoJSON to DGN." });
-      });
-    } catch (error) {
-      console.error("Error while processing GeoJSON data:", error);
-      res.status(500).json({ error: "Failed to process GeoJSON data." });
-    }
-  } else {
-    res.status(405).json({ error: "Method not allowed." });
+      fs.unlinkSync(geoJsonFileName);
+    });
+  } catch (error) {
+    console.error("An error occurred during conversion:", error);
+    res.status(500).json({ error: "Internal server error." });
   }
 };
 
-export default handleDGNData;
+export default handler;
