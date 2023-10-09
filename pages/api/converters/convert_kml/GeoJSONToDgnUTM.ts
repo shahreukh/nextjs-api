@@ -66,7 +66,7 @@ const getFirstCoordinates = (geometry) => {
   return null;
 };
 
-const handleDXFDataUTM = async (req: NextApiRequest, res: NextApiResponse) => {
+const handleDGNDataUTM = async (req: NextApiRequest, res: NextApiResponse) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -91,7 +91,7 @@ const handleDXFDataUTM = async (req: NextApiRequest, res: NextApiResponse) => {
       const geoJsonString = JSON.stringify(flattenedGeoJson);
       console.log(geoJsonString);
 
-      const uploadsDirectory = path.join(process.cwd(), "uploads_dxf");
+      const uploadsDirectory = path.join(process.cwd(), "uploads_dgn");
       if (!fs.existsSync(uploadsDirectory)) {
         fs.mkdirSync(uploadsDirectory);
       }
@@ -101,10 +101,10 @@ const handleDXFDataUTM = async (req: NextApiRequest, res: NextApiResponse) => {
 
       const ogr2ogr = spawn("ogr2ogr", [
         "-f",
-        "DXF",
-        "-t_srs",
+        "DGN",
+        "-a_srs",
         targetEPSG,
-        path.join(uploadsDirectory, "output.dxf"),
+        path.join(uploadsDirectory, "output.dgn"),
         "/vsistdin/",
       ]);
 
@@ -117,24 +117,31 @@ const handleDXFDataUTM = async (req: NextApiRequest, res: NextApiResponse) => {
         if (code === 0) {
           console.log("ogr2ogr process completed successfully.");
 
-          // Send the .dxf file directly without zipping
-          const dxfFilePath = path.join(uploadsDirectory, "output.dxf");
-          const dxfFileContent = fs.readFileSync(dxfFilePath, "utf-8");
+          const dgnFilePath = path.join(uploadsDirectory, "output.dgn");
 
-          res.setHeader("Content-Type", "application/octet-stream");
-          res.setHeader(
-            "Content-Disposition",
-            "attachment; filename=output.dxf"
-          );
-          res.send(dxfFileContent);
+          if (fs.existsSync(dgnFilePath)) {
+            const dgnFileContent = fs.readFileSync(dgnFilePath, "utf-8");
 
-          // Cleanup: Delete the temporary .dxf file
-          fs.unlinkSync(dxfFilePath);
+            res.setHeader("Content-Type", "application/octet-stream");
+            res.setHeader(
+              "Content-Disposition",
+              "attachment; filename=output.dgn"
+            );
+            res.send(dgnFileContent);
+
+            // fs.unlinkSync(dgnFilePath);
+          } else {
+            console.error("DGN file not found.");
+            res.status(500).json({
+              error: "Failed to convert GeoJSON to DGN. DGN file not found.",
+              dgnData: null,
+            });
+          }
         } else {
           console.error("ogr2ogr process exited with code", code);
           res.status(500).json({
-            error: "Failed to convert GeoJSON to DXF.",
-            dxfData: null,
+            error: "Failed to convert GeoJSON to DGN.",
+            dgnData: null,
           });
         }
       });
@@ -147,4 +154,4 @@ const handleDXFDataUTM = async (req: NextApiRequest, res: NextApiResponse) => {
   }
 };
 
-export default handleDXFDataUTM;
+export default handleDGNDataUTM;
