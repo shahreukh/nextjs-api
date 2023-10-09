@@ -34,7 +34,7 @@ const findUTMZoneFromGeoJSON = (geojson) => {
       const latitude = firstCoordinates[1];
       const utmZone = Math.floor((longitude + 180) / 6) + 1;
       const hemisphereIndicator = latitude >= 0 ? "6" : "7";
-
+      console.log(longitude, latitude, utmZone, hemisphereIndicator);
       return `EPSG:32${hemisphereIndicator}${
         utmZone > 9 ? utmZone : "0" + utmZone
       }`;
@@ -79,7 +79,7 @@ const handleDGNDataUTM = async (req: NextApiRequest, res: NextApiResponse) => {
   if (req.method === "POST") {
     try {
       const { geoJsonData } = req.body;
-
+      console.log(geoJsonData);
       const flattenedGeoJson = {
         ...geoJsonData,
         features: geoJsonData.features.map((feature) => ({
@@ -90,21 +90,21 @@ const handleDGNDataUTM = async (req: NextApiRequest, res: NextApiResponse) => {
 
       const geoJsonString = JSON.stringify(flattenedGeoJson);
       console.log(geoJsonString);
-
       const uploadsDirectory = path.join(process.cwd(), "uploads_dgn");
       if (!fs.existsSync(uploadsDirectory)) {
         fs.mkdirSync(uploadsDirectory);
       }
 
       const targetEPSG = findUTMZoneFromGeoJSON(geoJsonData);
-      console.log(targetEPSG);
+
+      const dgnFilePath = path.join(uploadsDirectory, "output.dgn");
 
       const ogr2ogr = spawn("ogr2ogr", [
         "-f",
         "DGN",
-        "-a_srs",
+        "-t_srs",
         targetEPSG,
-        path.join(uploadsDirectory, "output.dgn"),
+        dgnFilePath,
         "/vsistdin/",
       ]);
 
@@ -117,30 +117,26 @@ const handleDGNDataUTM = async (req: NextApiRequest, res: NextApiResponse) => {
         if (code === 0) {
           console.log("ogr2ogr process completed successfully.");
 
-          const dgnFilePath = path.join(uploadsDirectory, "output.dgn");
-
           if (fs.existsSync(dgnFilePath)) {
-            const dgnFileContent = fs.readFileSync(dgnFilePath, "utf-8");
+            const dgnFileContent = fs.readFileSync(dgnFilePath);
 
-            res.setHeader("Content-Type", "application/octet-stream");
+            res.setHeader("Content-Type", "application/dgn");
             res.setHeader(
               "Content-Disposition",
               "attachment; filename=output.dgn"
             );
             res.send(dgnFileContent);
-
-            // fs.unlinkSync(dgnFilePath);
           } else {
-            console.error("DGN file not found.");
+            console.error("DGN file does not exist:", dgnFilePath);
             res.status(500).json({
-              error: "Failed to convert GeoJSON to DGN. DGN file not found.",
+              error: "Failed to convert GeoJSON to dgn.",
               dgnData: null,
             });
           }
         } else {
           console.error("ogr2ogr process exited with code", code);
           res.status(500).json({
-            error: "Failed to convert GeoJSON to DGN.",
+            error: "Failed to convert GeoJSON to dgn.",
             dgnData: null,
           });
         }
