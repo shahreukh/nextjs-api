@@ -3,6 +3,14 @@ import { spawn } from "child_process";
 import fs from "fs";
 import path from "path";
 
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: "40mb",
+    },
+  },
+};
+
 const handleDXFData = async (req: NextApiRequest, res: NextApiResponse) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST");

@@ -4,6 +4,14 @@ import fs from "fs";
 import path from "path";
 import archiver from "archiver";
 
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: "40mb",
+    },
+  },
+};
+
 const flattenGeometryCollection = (geometryCollection) => {
   if (
     geometryCollection.type === "GeometryCollection" &&
@@ -37,13 +45,13 @@ const handleSHPData = async (req: NextApiRequest, res: NextApiResponse) => {
 
   if (req.method === "POST") {
     try {
-      const { kmlData } = req.body;
+      const { geoJsonData } = req.body;
 
-      // console.log("Received GeoJSON data:", kmlData);
+      // console.log("Received GeoJSON data:", geoJsonData);
 
       const flattenedGeoJson = {
-        ...kmlData,
-        features: kmlData.features.map((feature) => ({
+        ...geoJsonData,
+        features: geoJsonData.features.map((feature) => ({
           ...feature,
           geometry: flattenGeometryCollection(feature.geometry),
         })),

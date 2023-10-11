@@ -4,6 +4,14 @@ import fs from "fs";
 import path from "path";
 import archiver from "archiver";
 
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: "40mb",
+    },
+  },
+};
+
 const flattenGeometryCollection = (geometryCollection) => {
   if (
     geometryCollection.type === "GeometryCollection" &&
@@ -79,26 +87,26 @@ const handleSHPDataUTM = async (req: NextApiRequest, res: NextApiResponse) => {
 
   if (req.method === "POST") {
     try {
-      const { kmlData } = req.body;
+      const { geoJsonData } = req.body;
 
       const flattenedGeoJson = {
-        ...kmlData,
-        features: kmlData.features.map((feature) => ({
+        ...geoJsonData,
+        features: geoJsonData.features.map((feature) => ({
           ...feature,
           geometry: flattenGeometryCollection(feature.geometry),
         })),
       };
 
       const geoJsonString = JSON.stringify(flattenedGeoJson);
-      console.log(geoJsonString);
+      // console.log(geoJsonString);
 
       const uploadsDirectory = path.join(process.cwd(), "uploads_shp");
       if (!fs.existsSync(uploadsDirectory)) {
         fs.mkdirSync(uploadsDirectory);
       }
 
-      const targetEPSG = findUTMZoneFromGeoJSON(kmlData);
-      console.log(targetEPSG);
+      const targetEPSG = findUTMZoneFromGeoJSON(geoJsonData);
+      // console.log(targetEPSG);
       const ogr2ogr = spawn("ogr2ogr", [
         "-f",
         "ESRI Shapefile",
@@ -115,7 +123,7 @@ const handleSHPDataUTM = async (req: NextApiRequest, res: NextApiResponse) => {
 
       ogr2ogr.on("close", (code) => {
         if (code === 0) {
-          console.log("ogr2ogr process completed successfully.");
+          // console.log("ogr2ogr process completed successfully.");
 
           const archive = archiver("zip", {
             zlib: { level: 9 },

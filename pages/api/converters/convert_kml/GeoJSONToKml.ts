@@ -6,7 +6,7 @@ import path from "path";
 export const config = {
   api: {
     bodyParser: {
-      sizeLimit: "10mb",
+      sizeLimit: "40mb",
     },
   },
 };
@@ -23,12 +23,12 @@ const handleKMLData = async (req: NextApiRequest, res: NextApiResponse) => {
 
   if (req.method === "POST") {
     try {
-      const { kmlData } = req.body;
+      const { geoJsonData } = req.body;
 
-      console.log("Received GeoJSON data:", kmlData);
+      // console.log("Received GeoJSON data:", geoJsonData);
 
-      const geoJsonString = JSON.stringify(kmlData);
-      console.log(geoJsonString);
+      const geoJsonString = JSON.stringify(geoJsonData);
+      // console.log(geoJsonString);
 
       const tmpDirectory = "/tmp";
       if (!fs.existsSync(tmpDirectory)) {
@@ -59,7 +59,7 @@ const handleKMLData = async (req: NextApiRequest, res: NextApiResponse) => {
 
       ogr2ogr.on("close", (code) => {
         if (code === 0) {
-          console.log("Conversion successful.");
+          // console.log("Conversion successful.");
           const kmlFilePath = path.join(tmpDirectory, "output.kml");
 
           fs.readFile(kmlFilePath, "utf8", (err, kmlContent) => {
@@ -67,8 +67,8 @@ const handleKMLData = async (req: NextApiRequest, res: NextApiResponse) => {
               console.error("Error reading KML file:", err);
               res.status(500).json({ error: "Failed to read KML file." });
             } else {
-              console.log("KML Content:");
-              console.log(kmlContent);
+              // console.log("KML Content:");
+              // console.log(kmlContent);
 
               res.status(200).json({ kmlData: kmlContent });
             }
