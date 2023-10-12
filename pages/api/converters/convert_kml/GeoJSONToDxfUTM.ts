@@ -6,19 +6,31 @@ import path from "path";
 export const config = {
   api: {
     bodyParser: {
-      sizeLimit: "40mb",
+      sizeLimit: "50mb",
     },
   },
 };
 
-const flattenGeometryCollection = (geometryCollection) => {
+interface Geometry {
+  type: string;
+  coordinates: any;
+}
+
+interface GeometryCollection {
+  type: string;
+  geometries: Geometry[];
+}
+
+const flattenGeometryCollection = (
+  geometryCollection: GeometryCollection
+): GeometryCollection => {
   if (
     geometryCollection.type === "GeometryCollection" &&
     geometryCollection.geometries
   ) {
-    const polygons = [];
-    const lines = [];
-    const points = [];
+    const polygons: any[] = [];
+    const lines: any[] = [];
+    const points: any[] = [];
 
     geometryCollection.geometries.forEach((geometry) => {
       if (geometry.type === "Polygon") {
@@ -30,7 +42,7 @@ const flattenGeometryCollection = (geometryCollection) => {
       }
     });
 
-    const flattenedGeometry = {
+    const flattenedGeometry: GeometryCollection = {
       type: "GeometryCollection",
       geometries: [],
     };
@@ -62,7 +74,7 @@ const flattenGeometryCollection = (geometryCollection) => {
   return geometryCollection;
 };
 
-const findUTMZoneFromGeoJSON = (geojson) => {
+const findUTMZoneFromGeoJSON = (geojson: any) => {
   if (geojson && geojson.features && geojson.features.length > 0) {
     const firstFeature = geojson.features[0];
     const firstCoordinates = getFirstCoordinates(firstFeature.geometry);
@@ -82,7 +94,7 @@ const findUTMZoneFromGeoJSON = (geojson) => {
   return "EPSG:32737";
 };
 
-const getFirstCoordinates = (geometry) => {
+const getFirstCoordinates = (geometry: any) => {
   if (geometry && geometry.coordinates) {
     if (geometry.type === "Point") {
       return geometry.coordinates;
@@ -120,7 +132,7 @@ const handleDXFDataUTM = async (req: NextApiRequest, res: NextApiResponse) => {
 
       const flattenedGeoJson = {
         ...geoJsonData,
-        features: geoJsonData.features.map((feature) => ({
+        features: geoJsonData.features.map((feature: any) => ({
           ...feature,
           geometry: flattenGeometryCollection(feature.geometry),
         })),
@@ -154,8 +166,6 @@ const handleDXFDataUTM = async (req: NextApiRequest, res: NextApiResponse) => {
       ogr2ogr.on("close", (code) => {
         if (code === 0) {
           console.log("ogr2ogr process completed successfully.");
-
-          // Send the .dxf file directly without zipping
           const dxfFilePath = path.join(uploadsDirectory, "output.dxf");
           const dxfFileContent = fs.readFileSync(dxfFilePath, "utf-8");
 
@@ -166,7 +176,6 @@ const handleDXFDataUTM = async (req: NextApiRequest, res: NextApiResponse) => {
           );
           res.send(dxfFileContent);
 
-          // Cleanup: Delete the temporary .dxf file
           fs.unlinkSync(dxfFilePath);
         } else {
           console.error("ogr2ogr process exited with code", code);

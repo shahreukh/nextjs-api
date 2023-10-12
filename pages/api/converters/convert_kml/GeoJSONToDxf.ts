@@ -24,11 +24,10 @@ const handleDXFData = async (req: NextApiRequest, res: NextApiResponse) => {
   if (req.method === "POST") {
     try {
       const { geoJsonData } = req.body;
-
-      console.log("Received GeoJSON data:", geoJsonData);
+      // console.log("Received GeoJSON data:", geoJsonData);
 
       const geoJsonString = JSON.stringify(geoJsonData);
-      console.log(geoJsonString);
+      // console.log(geoJsonString);
 
       const tmpDirectory = "/tmp";
       if (!fs.existsSync(tmpDirectory)) {
@@ -59,7 +58,7 @@ const handleDXFData = async (req: NextApiRequest, res: NextApiResponse) => {
 
       ogr2ogr.on("close", (code) => {
         if (code === 0) {
-          console.log("Conversion successful.");
+          // console.log("Conversion successful.");
           const dxfFilePath = path.join(tmpDirectory, "output.dxf");
 
           fs.readFile(dxfFilePath, "utf8", (err, dxfContent) => {
@@ -67,8 +66,7 @@ const handleDXFData = async (req: NextApiRequest, res: NextApiResponse) => {
               console.error("Error reading DXF file:", err);
               res.status(500).json({ error: "Failed to read DXF file." });
             } else {
-              console.log("DXF Content:");
-              console.log(dxfContent);
+              // console.log("DXF Content:",dxfContent);
 
               res.status(200).json({ dxfData: dxfContent });
             }

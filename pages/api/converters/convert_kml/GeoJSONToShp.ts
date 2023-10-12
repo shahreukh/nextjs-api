@@ -17,16 +17,29 @@ const flattenGeometryCollection = (geometryCollection) => {
     geometryCollection.type === "GeometryCollection" &&
     geometryCollection.geometries
   ) {
-    const polygons = geometryCollection.geometries.map((geometry) => {
-      if (geometry.type === "Polygon") {
-        return geometry.coordinates;
+    const flattenedGeometries = geometryCollection.geometries.map(
+      (geometry) => {
+        switch (geometry.type) {
+          case "Polygon":
+            return {
+              type: "MultiPolygon",
+              coordinates: [geometry.coordinates],
+            };
+          case "MultiPolygon":
+          case "LineString":
+          case "MultiLineString":
+          case "Point":
+          case "MultiPoint":
+            return geometry;
+          default:
+            return null;
+        }
       }
-      return null; // Skip other geometry types for simplicity
-    });
+    );
 
     return {
-      type: "MultiPolygon",
-      coordinates: polygons.filter((polygon) => polygon !== null),
+      type: "GeometryCollection",
+      geometries: flattenedGeometries.filter((geometry) => geometry !== null),
     };
   }
 
