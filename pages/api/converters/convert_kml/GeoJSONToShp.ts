@@ -7,7 +7,7 @@ import archiver from "archiver";
 export const config = {
   api: {
     bodyParser: {
-      sizeLimit: "40mb",
+      sizeLimit: "50mb",
     },
   },
 };
