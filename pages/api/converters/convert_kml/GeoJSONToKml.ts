@@ -6,7 +6,7 @@ import path from "path";
 export const config = {
   api: {
     bodyParser: {
-      sizeLimit: "40mb",
+      sizeLimit: "50mb",
     },
   },
 };
@@ -24,7 +24,6 @@ const handleKMLData = async (req: NextApiRequest, res: NextApiResponse) => {
   if (req.method === "POST") {
     try {
       const { geoJsonData } = req.body;
-
       // console.log("Received GeoJSON data:", geoJsonData);
 
       const geoJsonString = JSON.stringify(geoJsonData);
@@ -67,9 +66,7 @@ const handleKMLData = async (req: NextApiRequest, res: NextApiResponse) => {
               console.error("Error reading KML file:", err);
               res.status(500).json({ error: "Failed to read KML file." });
             } else {
-              // console.log("KML Content:");
-              // console.log(kmlContent);
-
+              // console.log("KML Content:",kmlContent);
               res.status(200).json({ kmlData: kmlContent });
             }
           });

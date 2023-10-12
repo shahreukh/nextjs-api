@@ -16,17 +16,47 @@ const flattenGeometryCollection = (geometryCollection) => {
     geometryCollection.type === "GeometryCollection" &&
     geometryCollection.geometries
   ) {
-    const polygons = geometryCollection.geometries.map((geometry) => {
+    const polygons = [];
+    const lines = [];
+    const points = [];
+
+    geometryCollection.geometries.forEach((geometry) => {
       if (geometry.type === "Polygon") {
-        return geometry.coordinates;
+        polygons.push(geometry.coordinates);
+      } else if (geometry.type === "LineString") {
+        lines.push(geometry.coordinates);
+      } else if (geometry.type === "Point") {
+        points.push(geometry.coordinates);
       }
-      return null;
     });
 
-    return {
-      type: "MultiPolygon",
-      coordinates: polygons.filter((polygon) => polygon !== null),
+    const flattenedGeometry = {
+      type: "GeometryCollection",
+      geometries: [],
     };
+
+    if (polygons.length > 0) {
+      flattenedGeometry.geometries.push({
+        type: "MultiPolygon",
+        coordinates: polygons,
+      });
+    }
+
+    if (lines.length > 0) {
+      flattenedGeometry.geometries.push({
+        type: "MultiLineString",
+        coordinates: lines,
+      });
+    }
+
+    if (points.length > 0) {
+      flattenedGeometry.geometries.push({
+        type: "MultiPoint",
+        coordinates: points,
+      });
+    }
+
+    return flattenedGeometry;
   }
 
   return geometryCollection;

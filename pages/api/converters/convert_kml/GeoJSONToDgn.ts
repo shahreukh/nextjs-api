@@ -6,7 +6,7 @@ import path from "path";
 export const config = {
   api: {
     bodyParser: {
-      sizeLimit: "40mb",
+      sizeLimit: "50mb",
     },
   },
 };
@@ -34,7 +34,7 @@ const handleDGNData = async (req: NextApiRequest, res: NextApiResponse) => {
     const dgnFileName = "uploads_dgn/output.dgn";
     const ogr2ogrDgnCommand = `ogr2ogr -f DGN ${dgnFileName} ${geoJsonFileName}`;
     exec(ogr2ogrDgnCommand, (dgnError, dgnStdout, dgnStderr) => {
-      console.log("ogr2ogr DGN output:", dgnStdout);
+      // console.log("ogr2ogr DGN output:", dgnStdout);
       if (dgnError) {
         console.error(`Error during DGN conversion: ${dgnStderr}`);
         return res.status(500).json({ error: "Error during DGN conversion." });
