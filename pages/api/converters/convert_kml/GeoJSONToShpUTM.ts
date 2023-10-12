@@ -7,7 +7,7 @@ import archiver from "archiver";
 export const config = {
   api: {
     bodyParser: {
-      sizeLimit: "40mb",
+      sizeLimit: "50mb",
     },
   },
 };
@@ -21,7 +21,7 @@ const flattenGeometryCollection = (geometryCollection) => {
       if (geometry.type === "Polygon") {
         return geometry.coordinates;
       }
-      return null; // Skip other geometry types for simplicity
+      return null;
     });
 
     return {
