@@ -17,16 +17,23 @@ const flattenGeometryCollection = (geometryCollection) => {
     geometryCollection.type === "GeometryCollection" &&
     geometryCollection.geometries
   ) {
-    const polygons = geometryCollection.geometries.map((geometry) => {
+    const geometries = geometryCollection.geometries.map((geometry) => {
       if (geometry.type === "Polygon") {
-        return geometry.coordinates;
+        return {
+          type: "Polygon",
+          coordinates: geometry.coordinates,
+        };
       }
-      return null; // Skip other geometry types for simplicity
+      // Handle other geometry types
+      return {
+        type: geometry.type,
+        coordinates: geometry.coordinates,
+      };
     });
 
     return {
-      type: "MultiPolygon",
-      coordinates: polygons.filter((polygon) => polygon !== null),
+      type: "GeometryCollection",
+      geometries: geometries,
     };
   }
 
