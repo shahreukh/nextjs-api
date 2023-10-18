@@ -12,28 +12,70 @@ export const config = {
   },
 };
 
-const flattenGeometryCollection = (geometryCollection) => {
+interface Geometry {
+  type: string;
+  coordinates: any;
+}
+
+interface GeometryCollection {
+  type: string;
+  geometries: Geometry[];
+}
+
+const flattenGeometryCollection = (
+  geometryCollection: GeometryCollection
+): GeometryCollection => {
   if (
     geometryCollection.type === "GeometryCollection" &&
     geometryCollection.geometries
   ) {
-    const polygons = geometryCollection.geometries.map((geometry) => {
+    const polygons: any[] = [];
+    const lines: any[] = [];
+    const points: any[] = [];
+
+    geometryCollection.geometries.forEach((geometry) => {
       if (geometry.type === "Polygon") {
-        return geometry.coordinates;
+        polygons.push(geometry.coordinates);
+      } else if (geometry.type === "LineString") {
+        lines.push(geometry.coordinates);
+      } else if (geometry.type === "Point") {
+        points.push(geometry.coordinates);
       }
-      return null; // Skip other geometry types for simplicity
     });
 
-    return {
-      type: "MultiPolygon",
-      coordinates: polygons.filter((polygon) => polygon !== null),
+    const flattenedGeometry: GeometryCollection = {
+      type: "GeometryCollection",
+      geometries: [],
     };
+
+    if (polygons.length > 0) {
+      flattenedGeometry.geometries.push({
+        type: "MultiPolygon",
+        coordinates: polygons,
+      });
+    }
+
+    if (lines.length > 0) {
+      flattenedGeometry.geometries.push({
+        type: "MultiLineString",
+        coordinates: lines,
+      });
+    }
+
+    if (points.length > 0) {
+      flattenedGeometry.geometries.push({
+        type: "MultiPoint",
+        coordinates: points,
+      });
+    }
+
+    return flattenedGeometry;
   }
 
   return geometryCollection;
 };
 
-const convertToShapefile = async (features, fileName) => {
+const convertToShapefile = async (features, fileName, geometryType) => {
   if (features.length === 0) {
     return; // No features of this type, nothing to convert
   }
@@ -43,7 +85,9 @@ const convertToShapefile = async (features, fileName) => {
     features,
   };
 
-  const typeSpecificGeoJsonString = JSON.stringify(typeSpecificGeoJson);
+  const typeSpecificGeoJsonString = JSON.stringify(
+    flattenGeometryCollection(typeSpecificGeoJson)
+  );
 
   const uploadsDirectory = path.join(process.cwd(), "uploads_shp");
   if (!fs.existsSync(uploadsDirectory)) {
@@ -74,7 +118,7 @@ const convertToShapefile = async (features, fileName) => {
 };
 
 const handleSHPData = async (req: NextApiRequest, res: NextApiResponse) => {
-  const uploadsDirectory = path.join(process.cwd(), "uploads_shp"); // Define uploadsDirectory here
+  const uploadsDirectory = path.join(process.cwd(), "uploads_shp");
 
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST");
@@ -89,14 +133,9 @@ const handleSHPData = async (req: NextApiRequest, res: NextApiResponse) => {
     try {
       const { geoJsonData } = req.body;
 
-      const flattenedGeoJson = {
-        ...geoJsonData,
-        features: geoJsonData.features.map((feature) => ({
-          ...feature,
-          geometry: flattenGeometryCollection(feature.geometry),
-        })),
-      };
-
+      const flattenedGeoJson = flattenGeometryCollection(geoJsonData);
+      const geoJsonString = JSON.stringify(flattenedGeoJson);
+      console.log(geoJsonString);
       const pointFeatures = flattenedGeoJson.features.filter(
         (feature) => feature.geometry.type === "Point"
       );
@@ -108,9 +147,9 @@ const handleSHPData = async (req: NextApiRequest, res: NextApiResponse) => {
       );
 
       await Promise.all([
-        convertToShapefile(pointFeatures, "output_point.shp"),
-        convertToShapefile(lineFeatures, "output_line.shp"),
-        convertToShapefile(polygonFeatures, "output_polygon.shp"),
+        convertToShapefile(pointFeatures, "output_point.shp", "Point"),
+        convertToShapefile(lineFeatures, "output_line.shp", "LineString"),
+        convertToShapefile(polygonFeatures, "output_polygon.shp", "Polygon"),
       ]);
 
       // Create a ZIP stream
