@@ -17,30 +17,65 @@ const flattenGeometryCollection = (geometryCollection) => {
     geometryCollection.type === "GeometryCollection" &&
     geometryCollection.geometries
   ) {
-    const geometries = geometryCollection.geometries.map((geometry) => {
+    const polygons = geometryCollection.geometries.map((geometry) => {
       if (geometry.type === "Polygon") {
-        return {
-          type: "Polygon",
-          coordinates: geometry.coordinates,
-        };
+        return geometry.coordinates;
       }
-      // Handle other geometry types
-      return {
-        type: geometry.type,
-        coordinates: geometry.coordinates,
-      };
+      return null; // Skip other geometry types for simplicity
     });
 
     return {
-      type: "GeometryCollection",
-      geometries: geometries,
+      type: "MultiPolygon",
+      coordinates: polygons.filter((polygon) => polygon !== null),
     };
   }
 
   return geometryCollection;
 };
 
+const convertToShapefile = async (features, fileName) => {
+  if (features.length === 0) {
+    return; // No features of this type, nothing to convert
+  }
+
+  const typeSpecificGeoJson = {
+    type: "FeatureCollection",
+    features,
+  };
+
+  const typeSpecificGeoJsonString = JSON.stringify(typeSpecificGeoJson);
+
+  const uploadsDirectory = path.join(process.cwd(), "uploads_shp");
+  if (!fs.existsSync(uploadsDirectory)) {
+    fs.mkdirSync(uploadsDirectory);
+  }
+
+  const ogr2ogrProcess = spawn("ogr2ogr", [
+    "-f",
+    "ESRI Shapefile",
+    path.join(uploadsDirectory, fileName),
+    "/vsistdin/",
+  ]);
+
+  ogr2ogrProcess.stdin.write(typeSpecificGeoJsonString);
+  ogr2ogrProcess.stdin.end();
+
+  return new Promise((resolve, reject) => {
+    ogr2ogrProcess.on("close", (code) => {
+      if (code === 0) {
+        console.log(`${fileName} conversion successful.`);
+        resolve();
+      } else {
+        console.error(`${fileName} conversion failed with code ${code}`);
+        reject(new Error(`Failed to convert ${fileName} to SHP.`));
+      }
+    });
+  });
+};
+
 const handleSHPData = async (req: NextApiRequest, res: NextApiResponse) => {
+  const uploadsDirectory = path.join(process.cwd(), "uploads_shp"); // Define uploadsDirectory here
+
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -54,8 +89,6 @@ const handleSHPData = async (req: NextApiRequest, res: NextApiResponse) => {
     try {
       const { geoJsonData } = req.body;
 
-      // console.log("Received GeoJSON data:", geoJsonData);
-
       const flattenedGeoJson = {
         ...geoJsonData,
         features: geoJsonData.features.map((feature) => ({
@@ -64,67 +97,68 @@ const handleSHPData = async (req: NextApiRequest, res: NextApiResponse) => {
         })),
       };
 
-      const geoJsonString = JSON.stringify(flattenedGeoJson);
-      console.log(geoJsonString);
+      const pointFeatures = flattenedGeoJson.features.filter(
+        (feature) => feature.geometry.type === "Point"
+      );
+      const lineFeatures = flattenedGeoJson.features.filter(
+        (feature) => feature.geometry.type === "LineString"
+      );
+      const polygonFeatures = flattenedGeoJson.features.filter(
+        (feature) => feature.geometry.type === "Polygon"
+      );
 
-      const uploadsDirectory = path.join(process.cwd(), "uploads_shp");
-      if (!fs.existsSync(uploadsDirectory)) {
-        fs.mkdirSync(uploadsDirectory);
-      }
-
-      const ogr2ogr = spawn("ogr2ogr", [
-        "-f",
-        "ESRI Shapefile",
-        path.join(uploadsDirectory, "output.shp"),
-        "/vsistdin/",
+      await Promise.all([
+        convertToShapefile(pointFeatures, "output_point.shp"),
+        convertToShapefile(lineFeatures, "output_line.shp"),
+        convertToShapefile(polygonFeatures, "output_polygon.shp"),
       ]);
 
-      console.log("ogr2ogr command:", ogr2ogr.spawnargs.join(" "));
+      // Create a ZIP stream
+      const archive = archiver("zip", {
+        zlib: { level: 9 },
+      });
 
-      ogr2ogr.stdin.write(geoJsonString);
-      ogr2ogr.stdin.end();
+      // Pipe the ZIP stream to the response
+      archive.pipe(res);
 
-      // Log the content of the SHP files after conversion
-      ogr2ogr.on("close", (code) => {
-        if (code === 0) {
-          console.log("ogr2ogr process completed successfully.");
+      // Add Shapefile files to the ZIP stream from the "uploads" directory
+      const shapefileFiles = [
+        "output_point.shp",
+        "output_point.shx",
+        "output_point.dbf",
+        "output_point.prj",
+        "output_line.shp",
+        "output_line.shx",
+        "output_line.dbf",
+        "output_line.prj",
+        "output_polygon.shp",
+        "output_polygon.shx",
+        "output_polygon.dbf",
+        "output_polygon.prj",
+        // Add other related files as needed
+      ];
 
-          // Create a ZIP stream
-          const archive = archiver("zip", {
-            zlib: { level: 9 },
-          });
+      shapefileFiles.forEach((file) => {
+        const filePath = path.join(uploadsDirectory, file);
 
-          // Pipe the ZIP stream to the response
-          archive.pipe(res);
-
-          // Add Shapefile files to the ZIP stream from the "uploads" directory
-          archive.file(path.join(uploadsDirectory, "output.shp"), {
-            name: "output.shp",
-          });
-          archive.file(path.join(uploadsDirectory, "output.shx"), {
-            name: "output.shx",
-          });
-          archive.file(path.join(uploadsDirectory, "output.dbf"), {
-            name: "output.dbf",
-          });
-          archive.file(path.join(uploadsDirectory, "output.prj"), {
-            name: "output.prj",
-          });
-
-          // Finalize the ZIP archive
-          archive.finalize();
-
-          // Cleanup: Remove temporary files
-          archive.on("finish", () => {
-            fs.unlinkSync(path.join(uploadsDirectory, "output.shp"));
-            fs.unlinkSync(path.join(uploadsDirectory, "output.shx"));
-            fs.unlinkSync(path.join(uploadsDirectory, "output.dbf"));
-            fs.unlinkSync(path.join(uploadsDirectory, "output.prj"));
-          });
+        if (fs.existsSync(filePath)) {
+          archive.file(filePath, { name: file });
         } else {
-          console.error("ogr2ogr process exited with code", code);
-          res.status(500).json({ error: "Failed to convert GeoJSON to SHP." });
+          console.error(`File not found: ${filePath}`);
         }
+      });
+
+      // Finalize the ZIP archive
+      archive.finalize();
+
+      // Cleanup: Remove temporary files
+      archive.on("finish", () => {
+        shapefileFiles.forEach((file) => {
+          const filePath = path.join(uploadsDirectory, file);
+          if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+          }
+        });
       });
     } catch (error) {
       console.error("Error while processing GeoJSON data:", error);
