@@ -12,7 +12,7 @@ const corsMiddleware = cors({
 });
 
 const upload = multer({
-  dest: "uploads_dxf/",
+  dest: "uploads/uploads_dxf/",
   limits: {
     fileSize: 300 * 1024 * 1024,
   },
@@ -48,7 +48,7 @@ const handleApiRequest = async (req: NextApiRequest, res: NextApiResponse) => {
 
         dxfFilePath = req.file.path;
 
-        const geoJSONFilePath = `uploads_dxf/temp.geojson`;
+        const geoJSONFilePath = `uploads/uploads_dxf/temp.geojson`;
         const ogr2ogrGeoJSONCommand = `ogr2ogr -f "GeoJSON" ${geoJSONFilePath} ${dxfFilePath}`;
         await execPromise(ogr2ogrGeoJSONCommand);
 
