@@ -4,7 +4,6 @@ import { promisify } from "util";
 import { exec } from "child_process";
 import { promises as fsPromises } from "fs";
 import cors from "cors";
-import proj4 from "proj4";
 
 const corsMiddleware = cors({
   origin: "*",
@@ -13,7 +12,7 @@ const corsMiddleware = cors({
 });
 
 const upload = multer({
-  dest: "uploads/",
+  dest: "uploads_dxf/",
   limits: {
     fileSize: 300 * 1024 * 1024,
   },
@@ -28,15 +27,6 @@ export const config = {
   },
 };
 
-const utmToWgs84 = (coordinates) => {
-  // Define the UTM and WGS84 coordinate systems
-  const utmProjection = "+proj=utm +33 +ellps=WGS84";
-  const wgs84Projection = "+proj=longlat +datum=WGS84";
-
-  // Convert UTM to WGS84
-  return proj4(utmProjection, wgs84Projection, coordinates);
-};
-
 const handleApiRequest = async (req: NextApiRequest, res: NextApiResponse) => {
   if (req.method === "OPTIONS") {
     res.status(200).end();
@@ -49,57 +39,32 @@ const handleApiRequest = async (req: NextApiRequest, res: NextApiResponse) => {
         return res.status(400).json({ error: "File upload error." });
       }
 
-      let temporaryGeoJSONFilePath;
+      let dxfFilePath = null;
 
       try {
         if (!req.file) {
           return res.status(400).json({ error: "No DXF file uploaded." });
         }
 
-        const dxfFilePath = req.file.path;
-        temporaryGeoJSONFilePath = `uploads/temp.geojson`;
-        const utmZone = "36"; // Replace with your UTM zone
-        const ogr2ogrCommand = `ogr2ogr -f "GeoJSON" -t_srs EPSG:${utmZone} ${temporaryGeoJSONFilePath} ${dxfFilePath}`;
+        dxfFilePath = req.file.path;
 
-        await execPromise(ogr2ogrCommand);
+        const geoJSONFilePath = `uploads_dxf/temp.geojson`;
+        const ogr2ogrGeoJSONCommand = `ogr2ogr -f "GeoJSON" ${geoJSONFilePath} ${dxfFilePath}`;
+        await execPromise(ogr2ogrGeoJSONCommand);
 
         const convertedGeoJSON = await fsPromises.readFile(
-          temporaryGeoJSONFilePath,
+          geoJSONFilePath,
           "utf-8"
         );
 
-        // Parse the GeoJSON to modify the coordinates
-        const geoJsonObject = JSON.parse(convertedGeoJSON);
-        if (geoJsonObject.geometry && geoJsonObject.geometry.coordinates) {
-          geoJsonObject.geometry.coordinates =
-            geoJsonObject.geometry.coordinates.map((coordinates) =>
-              utmToWgs84(coordinates)
-            );
-        }
-
-        // Convert the modified GeoJSON back to a string
-        const modifiedGeoJSON = JSON.stringify(geoJsonObject);
-
         res.setHeader("Content-Type", "application/json");
-        res.status(200).send(modifiedGeoJSON);
-        console.log("D", modifiedGeoJSON);
+        res.status(200).send(convertedGeoJSON);
+
         await fsPromises.unlink(dxfFilePath);
-        //console.log("Uploaded DXF file removed successfully.");
+        await fsPromises.unlink(geoJSONFilePath);
       } catch (error) {
         console.error("Error:", error);
         return res.status(500).json({ error: "An error occurred." });
-      } finally {
-        if (temporaryGeoJSONFilePath) {
-          try {
-            await fsPromises.unlink(temporaryGeoJSONFilePath);
-            //console.log("Temporary GeoJSON file removed successfully.");
-          } catch (unlinkError) {
-            console.error(
-              "Error removing temporary GeoJSON file:",
-              unlinkError
-            );
-          }
-        }
       }
     });
   });
