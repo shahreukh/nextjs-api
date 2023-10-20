@@ -34,34 +34,39 @@ const handleApiRequest = async (req: NextApiRequest, res: NextApiResponse) => {
   }
 
   corsMiddleware(req, res, async () => {
-    await upload.single("dxfFile")(req, res, async (err) => {
+    await upload.array("dxfFile")(req, res, async (err) => {
       if (err) {
         return res.status(400).json({ error: "File upload error." });
       }
 
-      let dxfFilePath = null;
+      let dxfFilePaths = [];
 
       try {
-        if (!req.file) {
-          return res.status(400).json({ error: "No DXF file uploaded." });
+        if (!req.files || req.files.length === 0) {
+          return res.status(400).json({ error: "No DXF files uploaded." });
         }
 
-        dxfFilePath = req.file.path;
+        for (const uploadedFile of req.files) {
+          dxfFilePaths.push(uploadedFile.path);
 
-        const geoJSONFilePath = `uploads/uploads_dxf/temp.geojson`;
-        const ogr2ogrGeoJSONCommand = `ogr2ogr -f "GeoJSON" ${geoJSONFilePath} ${dxfFilePath}`;
-        await execPromise(ogr2ogrGeoJSONCommand);
+          const geoJSONFilePath = `uploads/uploads_dxf/temp.geojson`;
+          const ogr2ogrGeoJSONCommand = `ogr2ogr -f "GeoJSON" ${geoJSONFilePath} ${uploadedFile.path}`;
+          await execPromise(ogr2ogrGeoJSONCommand);
 
-        const convertedGeoJSON = await fsPromises.readFile(
-          geoJSONFilePath,
-          "utf-8"
-        );
+          const convertedGeoJSON = await fsPromises.readFile(
+            geoJSONFilePath,
+            "utf-8"
+          );
 
-        res.setHeader("Content-Type", "application/json");
-        res.status(200).send(convertedGeoJSON);
+          res.setHeader("Content-Type", "application/json");
+          res.status(200).send(convertedGeoJSON);
 
-        await fsPromises.unlink(dxfFilePath);
-        await fsPromises.unlink(geoJSONFilePath);
+          await fsPromises.unlink(geoJSONFilePath);
+        }
+
+        for (const filePath of dxfFilePaths) {
+          await fsPromises.unlink(filePath);
+        }
       } catch (error) {
         console.error("Error:", error);
         return res.status(500).json({ error: "An error occurred." });
