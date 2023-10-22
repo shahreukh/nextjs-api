@@ -1,12 +1,9 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import multer from "multer";
+import { promisify } from "util";
 import { exec } from "child_process";
 import { promises as fsPromises } from "fs";
 import cors from "cors";
-
-interface MulterFileRequest extends NextApiRequest {
-  file: Express.Multer.File;
-}
 
 const corsMiddleware = cors({
   origin: "*",
@@ -15,11 +12,13 @@ const corsMiddleware = cors({
 });
 
 const upload = multer({
-  dest: "uploads/",
+  dest: "uploads/uploads_dgn/",
   limits: {
     fileSize: 300 * 1024 * 1024,
   },
 });
+
+const execPromise = promisify(exec);
 
 export const config = {
   api: {
@@ -28,84 +27,53 @@ export const config = {
   },
 };
 
-const handleApiRequest = async (
-  req: MulterFileRequest,
-  res: NextApiResponse
-) => {
+const handleApiRequest = async (req: NextApiRequest, res: NextApiResponse) => {
   if (req.method === "OPTIONS") {
     res.status(200).end();
     return;
   }
 
-  return corsMiddleware(req, res, async () => {
-    try {
-      upload.single("dgnFile")(req, res, async (err) => {
-        if (err) {
-          return res.status(400).json({ error: "File upload error." });
+  corsMiddleware(req, res, async () => {
+    await upload.array("dgnFile")(req, res, async (err) => {
+      // Update the field name for DGN files
+      if (err) {
+        return res.status(400).json({ error: "File upload error." });
+      }
+
+      let dgnFilePaths = [];
+
+      try {
+        if (!req.files || req.files.length === 0) {
+          return res.status(400).json({ error: "No DGN files uploaded." });
         }
 
-        if (!req.file) {
-          return res.status(400).json({ error: "No DGN file uploaded." });
+        for (const uploadedFile of req.files) {
+          dgnFilePaths.push(uploadedFile.path);
+
+          const geoJSONFilePath = `uploads/uploads_dgn/temp.geojson`;
+          const ogr2ogrGeoJSONCommand = `ogr2ogr -f "GeoJSON" ${geoJSONFilePath} ${uploadedFile.path}`; // Update this command if needed
+
+          await execPromise(ogr2ogrGeoJSONCommand);
+
+          const convertedGeoJSON = await fsPromises.readFile(
+            geoJSONFilePath,
+            "utf-8"
+          );
+
+          res.setHeader("Content-Type", "application/json");
+          res.status(200).send(convertedGeoJSON);
+
+          await fsPromises.unlink(geoJSONFilePath);
         }
 
-        const dgnFilePath = req.file.path;
-        const temporaryGeoJSONFilePath = `uploads/temp.geojson`;
-
-        const ogr2ogrCommand = `ogr2ogr -f "GeoJSON" ${temporaryGeoJSONFilePath} ${dgnFilePath}`;
-
-        exec(ogr2ogrCommand, async (error) => {
-          if (error) {
-            console.error("Error converting to GeoJSON:", error);
-
-            // Delete the uploaded DGN file
-            try {
-              await fsPromises.unlink(dgnFilePath);
-              console.log("Uploaded DGN file removed due to conversion error.");
-            } catch (unlinkError) {
-              console.error("Error removing uploaded DGN file:", unlinkError);
-            }
-
-            return res
-              .status(500)
-              .json({ error: "Error converting DGN to GeoJSON." });
-          }
-
-          try {
-            const convertedGeoJSON = await fsPromises.readFile(
-              temporaryGeoJSONFilePath,
-              "utf-8"
-            );
-            res.setHeader("Content-Type", "application/json");
-            res.status(200).send(convertedGeoJSON);
-
-            // Delete the uploaded DGN file
-            try {
-              await fsPromises.unlink(dgnFilePath);
-              console.log("Uploaded DGN file removed successfully.");
-            } catch (unlinkError) {
-              console.error("Error removing uploaded DGN file:", unlinkError);
-            }
-          } catch (readError) {
-            console.error("Error reading temporary GeoJSON file:", readError);
-            return res.status(500).json({ error: "An error occurred." });
-          } finally {
-            // Delete the temporary GeoJSON file after reading or in case of an error
-            try {
-              await fsPromises.unlink(temporaryGeoJSONFilePath);
-              console.log("Temporary GeoJSON file removed successfully.");
-            } catch (unlinkError) {
-              console.error(
-                "Error removing temporary GeoJSON file:",
-                unlinkError
-              );
-            }
-          }
-        });
-      });
-    } catch (error) {
-      console.error("Error:", error);
-      return res.status(500).json({ error: "An error occurred." });
-    }
+        for (const filePath of dgnFilePaths) {
+          await fsPromises.unlink(filePath);
+        }
+      } catch (error) {
+        console.error("Error:", error);
+        return res.status(500).json({ error: "An error occurred." });
+      }
+    });
   });
 };
 
