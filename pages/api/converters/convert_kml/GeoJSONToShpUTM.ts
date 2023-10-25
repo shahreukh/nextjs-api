@@ -82,7 +82,7 @@ const convertToShapefile = async (features, fileName, geometryType) => {
 
   const utmZone = findUTMZoneFromGeoJSON(typeSpecificGeoJson);
 
-  const uploadsDirectory = path.join(process.cwd(), "uploads_shp");
+  const uploadsDirectory = path.join(process.cwd(), "uploads/uploads_shp");
   if (!fs.existsSync(uploadsDirectory)) {
     fs.mkdirSync(uploadsDirectory);
   }
@@ -113,7 +113,7 @@ const convertToShapefile = async (features, fileName, geometryType) => {
 };
 
 const handleSHPData = async (req: NextApiRequest, res: NextApiResponse) => {
-  const uploadsDirectory = path.join(process.cwd(), "uploads_shp");
+  const uploadsDirectory = path.join(process.cwd(), "uploads/uploads_shp");
 
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST");

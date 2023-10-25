@@ -141,7 +141,7 @@ const handleDXFDataUTM = async (req: NextApiRequest, res: NextApiResponse) => {
       const geoJsonString = JSON.stringify(flattenedGeoJson);
       console.log(geoJsonString);
 
-      const uploadsDirectory = path.join(process.cwd(), "uploads_dxf");
+      const uploadsDirectory = path.join(process.cwd(), "uploads/uploads_dxf");
       if (!fs.existsSync(uploadsDirectory)) {
         fs.mkdirSync(uploadsDirectory);
       }

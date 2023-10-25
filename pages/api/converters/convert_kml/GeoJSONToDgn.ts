@@ -31,7 +31,7 @@ const handleDGNData = async (req: NextApiRequest, res: NextApiResponse) => {
     const geoJsonFileName = "temp.geojson";
     fs.writeFileSync(geoJsonFileName, JSON.stringify(geoJsonData));
 
-    const dgnFileName = "uploads_dgn/output.dgn";
+    const dgnFileName = "uploads/uploads_dgn/output.dgn";
     const ogr2ogrDgnCommand = `ogr2ogr -f DGN ${dgnFileName} ${geoJsonFileName}`;
     exec(ogr2ogrDgnCommand, (dgnError, dgnStdout, dgnStderr) => {
       // console.log("ogr2ogr DGN output:", dgnStdout);

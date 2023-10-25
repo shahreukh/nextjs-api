@@ -1,105 +1,96 @@
 import { NextApiRequest, NextApiResponse } from "next";
+import path from "path";
 import multer from "multer";
-import { promisify } from "util";
 import { exec } from "child_process";
-import { promises as fsPromises } from "fs";
-import cors from "cors";
 
-const corsMiddleware = cors({
-  origin: "*",
-  methods: "POST",
-  allowedHeaders: "Content-Type",
-});
-
-const upload = multer({
-  dest: "uploads/uploads_shp",
-  limits: {
-    fileSize: 50 * 1024 * 1024,
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, path.join(process.cwd(), "uploads/uploads_shp"));
+  },
+  filename: (req, file, cb) => {
+    cb(null, file.originalname);
   },
 });
 
-const execPromise = promisify(exec);
+const upload = multer({ storage });
 
 export const config = {
   api: {
-    bodyParser: false,
-    responseLimit: false,
+    bodyParser: {
+      sizeLimit: "40mb",
+    },
   },
 };
 
-const handleApiRequest = async (req: NextApiRequest, res: NextApiResponse) => {
-  if (req.method === "OPTIONS") {
-    res.status(200).end();
-    return;
-  }
+function getEPSGCode(zone: number, hemisphere: "N" | "S"): number {
+  const baseEPSG = hemisphere === "N" ? 326 : 327;
+  const epsgCode = baseEPSG + zone;
+  return epsgCode;
+}
 
-  corsMiddleware(req, res, async () => {
-    await upload.array("shpFiles")(req, res, async (err) => {
+const handleUpload = async (req: NextApiRequest, res: NextApiResponse) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+  try {
+    upload.any()(req, res, async (err) => {
       if (err) {
-        console.log("File upload error:", err);
-        return res.status(400).json({ error: "File upload error." });
-      }
-      const zone = req.body.selectedZone;
-      const hemisphere = req.body.selectedHemisphere;
-      let temporaryGeoJSONFilePath;
-      let shpFilePath = null;
-      function getEPSGCode(zone: number, hemisphere: "N" | "S"): number {
-        const baseEPSG = hemisphere === "N" ? 326 : 327;
+        console.error("Error uploading file:", err);
+        res.status(500).json({ error: "Failed to upload file" });
+      } else {
+        try {
+          const { selectedZone, selectedHemisphere } = req.body;
 
-        const epsgCode = baseEPSG + zone;
-
-        return epsgCode;
-      }
-
-      const epsgCode = getEPSGCode(zone, hemisphere);
-
-      if (!req.file) {
-        console.log("No Shp file uploaded.");
-        return res.status(400).json({ error: "No Shp file uploaded." });
-      }
-
-      try {
-        shpFilePath = req.file.path;
-        temporaryGeoJSONFilePath = `uploads/temp.shp`;
-
-        const ogr2ogrCommand = `ogr2ogr -f "GeoJSON" -s_srs EPSG:${epsgCode} -t_srs EPSG:4326 ${temporaryGeoJSONFilePath} ${shpFilePath}`;
-
-        await execPromise(ogr2ogrCommand);
-
-        const geoJSONContent = await fsPromises.readFile(
-          temporaryGeoJSONFilePath,
-          {
-            encoding: "utf-8",
+          if (selectedZone === undefined || selectedHemisphere === undefined) {
+            res.status(400).json({
+              error: "selectedZone and selectedHemisphere are required",
+            });
+            return;
           }
-        );
 
-        res.setHeader("Content-Type", "application/json");
-        res.status(200).send(geoJSONContent);
-        console.log(geoJSONContent);
-      } catch (error) {
-        console.error("Error:", error);
-        return res.status(500).json({ error: "An error occurred." });
-      } finally {
-        if (temporaryGeoJSONFilePath) {
-          try {
-            await fsPromises.unlink(temporaryGeoJSONFilePath);
-          } catch (unlinkError) {
-            console.error(
-              "Error removing temporary GeoJSON file:",
-              unlinkError
-            );
+          const epsgCode = getEPSGCode(selectedZone, selectedHemisphere);
+
+          const shpFile = req.files.find((file) =>
+            file.originalname.endsWith(".shp")
+          );
+
+          if (!shpFile) {
+            res.status(400).json({ error: "Missing SHP file" });
+            return;
           }
-        }
-        if (shpFilePath) {
-          try {
-            await fsPromises.unlink(shpFilePath);
-          } catch (unlinkError) {
-            console.error("Error removing Shp file:", unlinkError);
-          }
+
+          const outputGeoJSONFile = path.join(
+            process.cwd(),
+            "uploads/uploads_shp",
+            "output.geojson"
+          );
+
+          const ogr2ogrCommand = `ogr2ogr -f "GeoJSON" -s_srs EPSG:${epsgCode} -t_srs EPSG:4326 ${outputGeoJSONFile} ${shpFile.path}`;
+
+          exec(ogr2ogrCommand, (error, stdout, stderr) => {
+            if (error) {
+              console.error("Error converting to GeoJSON:", error);
+              res.status(500).json({ error: "Failed to convert to GeoJSON" });
+            } else {
+              res.status(200).json({
+                message:
+                  "Files uploaded and converted to WGS84 GeoJSON successfully",
+              });
+            }
+          });
+        } catch (error) {
+          console.error("Error processing files:", error);
+          res
+            .status(500)
+            .json({ error: "An error occurred during processing" });
         }
       }
     });
-  });
+  } catch (error) {
+    console.error("Error:", error);
+    res.status(500).json({ error: "An error occurred" });
+  }
 };
 
-export default handleApiRequest;
+export default handleUpload;

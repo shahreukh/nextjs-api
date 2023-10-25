@@ -71,7 +71,7 @@ const handleSHPData = async (req: NextApiRequest, res: NextApiResponse) => {
   if (req.method === "POST") {
     try {
       const { geoJsonData } = req.body;
-      const uploadsDirectory = path.join(process.cwd(), "uploads_shp");
+      const uploadsDirectory = path.join(process.cwd(), "uploads/uploads_shp");
 
       const lineFeatures = [];
       const polygonFeatures = [];
