@@ -2,6 +2,7 @@ import { NextApiRequest, NextApiResponse } from "next";
 import path from "path";
 import multer from "multer";
 import { exec } from "child_process";
+import fs from "fs";
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -16,9 +17,7 @@ const upload = multer({ storage });
 
 export const config = {
   api: {
-    bodyParser: {
-      sizeLimit: "40mb",
-    },
+    bodyParser: false,
   },
 };
 
@@ -34,7 +33,7 @@ const handleUpload = async (req: NextApiRequest, res: NextApiResponse) => {
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
   try {
-    upload.any()(req, res, async (err) => {
+    upload.array("shpFiles")(req, res, async (err) => {
       if (err) {
         console.error("Error uploading file:", err);
         res.status(500).json({ error: "Failed to upload file" });
@@ -51,7 +50,18 @@ const handleUpload = async (req: NextApiRequest, res: NextApiResponse) => {
 
           const epsgCode = getEPSGCode(selectedZone, selectedHemisphere);
 
-          const shpFile = req.files.find((file) =>
+          // Filter the files to keep only .shp, .shx, and .dbf files
+          const allowedFileTypes = [".shp", ".shx", ".dbf"];
+          const filteredFiles = req.files.filter((file) =>
+            allowedFileTypes.some((ext) => file.originalname.endsWith(ext))
+          );
+
+          if (filteredFiles.length !== allowedFileTypes.length) {
+            res.status(400).json({ error: "Required files are missing" });
+            return;
+          }
+
+          const shpFile = filteredFiles.find((file) =>
             file.originalname.endsWith(".shp")
           );
 
@@ -73,9 +83,66 @@ const handleUpload = async (req: NextApiRequest, res: NextApiResponse) => {
               console.error("Error converting to GeoJSON:", error);
               res.status(500).json({ error: "Failed to convert to GeoJSON" });
             } else {
-              res.status(200).json({
-                message:
-                  "Files uploaded and converted to WGS84 GeoJSON successfully",
+              // Read the converted GeoJSON file
+              // Inside the fs.readFile callback, after sending the GeoJSON response
+              fs.readFile(outputGeoJSONFile, "utf8", (readError, data) => {
+                if (readError) {
+                  console.error("Error reading GeoJSON file:", readError);
+                  res
+                    .status(500)
+                    .json({ error: "Failed to read GeoJSON file" });
+                } else {
+                  // Send the GeoJSON as the response
+                  res.status(200).json(JSON.parse(data)); // Parse the GeoJSON data and send it
+
+                  // Delete the uploaded files
+                  fs.unlink(shpFile.path, (unlinkError) => {
+                    if (unlinkError) {
+                      console.error(
+                        "Error deleting uploaded .shp file:",
+                        unlinkError
+                      );
+                    }
+                  });
+
+                  // Delete .shx and .dbf files
+                  const shxFile = filteredFiles.find((file) =>
+                    file.originalname.endsWith(".shx")
+                  );
+                  if (shxFile) {
+                    fs.unlink(shxFile.path, (unlinkError) => {
+                      if (unlinkError) {
+                        console.error(
+                          "Error deleting uploaded .shx file:",
+                          unlinkError
+                        );
+                      }
+                    });
+                  }
+
+                  const dbfFile = filteredFiles.find((file) =>
+                    file.originalname.endsWith(".dbf")
+                  );
+                  if (dbfFile) {
+                    fs.unlink(dbfFile.path, (unlinkError) => {
+                      if (unlinkError) {
+                        console.error(
+                          "Error deleting uploaded .dbf file:",
+                          unlinkError
+                        );
+                      }
+                    });
+                  }
+
+                  fs.unlink(outputGeoJSONFile, (unlinkError) => {
+                    if (unlinkError) {
+                      console.error(
+                        "Error deleting GeoJSON file:",
+                        unlinkError
+                      );
+                    }
+                  });
+                }
               });
             }
           });
