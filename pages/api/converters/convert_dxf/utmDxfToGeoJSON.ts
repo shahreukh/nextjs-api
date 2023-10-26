@@ -34,7 +34,7 @@ const handleApiRequest = async (req: NextApiRequest, res: NextApiResponse) => {
   }
 
   corsMiddleware(req, res, async () => {
-    await upload.array("dxfFiles")(req, res, async (err) => {
+    upload.array("dxfFiles")(req, res, async (err) => {
       if (err) {
         console.log("File upload error:", err);
         return res.status(400).json({ error: "File upload error." });
@@ -81,7 +81,7 @@ const handleApiRequest = async (req: NextApiRequest, res: NextApiResponse) => {
 
         temporaryGeoJSONFilePaths.forEach(async (geoJSONFilePath) => {
           try {
-            // await fsPromises.unlink(geoJSONFilePath);
+            await fsPromises.unlink(geoJSONFilePath);
           } catch (unlinkError) {
             console.error(
               "Error removing temporary GeoJSON file:",
