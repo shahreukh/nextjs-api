@@ -12,7 +12,7 @@ const corsMiddleware = cors({
 });
 
 const upload = multer({
-  dest: "uploads/",
+  dest: "uploads/uploads_shp",
   limits: {
     fileSize: 50 * 1024 * 1024,
   },
@@ -61,7 +61,9 @@ const handleApiRequest = async (req: NextApiRequest, res: NextApiResponse) => {
 
         for (const file of req.files) {
           dxfFilePaths.push(file.path);
-          temporaryGeoJSONFilePaths.push(`uploads/temp_${Date.now()}.geojson`);
+          temporaryGeoJSONFilePaths.push(
+            `uploads/uploads_shp/temp_${Date.now()}.geojson`
+          );
 
           const ogr2ogrCommand = `ogr2ogr -f "GeoJSON" -s_srs EPSG:${epsgCode} -t_srs EPSG:4326 ${
             temporaryGeoJSONFilePaths[temporaryGeoJSONFilePaths.length - 1]
