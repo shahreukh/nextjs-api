@@ -12,7 +12,7 @@ const corsMiddleware = cors({
 });
 
 const upload = multer({
-  dest: "uploads/uploads_dxf",
+  dest: "uploads/uploads_dgn",
   limits: {
     fileSize: 50 * 1024 * 1024,
   },
@@ -34,15 +34,15 @@ const handleApiRequest = async (req: NextApiRequest, res: NextApiResponse) => {
   }
 
   corsMiddleware(req, res, async () => {
-    upload.array("dxfFiles")(req, res, async (err) => {
+    upload.array("dgnFiles")(req, res, async (err) => {
       if (err) {
         console.log("File upload error:", err);
         return res.status(400).json({ error: "File upload error." });
       }
-      const zone = req.body.selectedZoneDxf;
-      const hemisphere = req.body.selectedHemisphereDxf;
+      const zone = req.body.selectedZoneDgn;
+      const hemisphere = req.body.selectedHemisphereDgn;
       let temporaryGeoJSONFilePaths = [];
-      let dxfFilePaths = [];
+      let dgnFilePaths = [];
 
       function getEPSGCode(zone: number, hemisphere: "N" | "S"): number {
         const baseEPSG = hemisphere === "N" ? 326 : 327;
@@ -55,14 +55,14 @@ const handleApiRequest = async (req: NextApiRequest, res: NextApiResponse) => {
 
       try {
         if (!req.files || req.files.length === 0) {
-          console.log("No DXF files uploaded.");
-          return res.status(400).json({ error: "No DXF files uploaded." });
+          console.log("No DGN files uploaded.");
+          return res.status(400).json({ error: "No DGN files uploaded." });
         }
 
         for (const file of req.files) {
-          dxfFilePaths.push(file.path);
+          dgnFilePaths.push(file.path);
           temporaryGeoJSONFilePaths.push(
-            `uploads/uploads_dxf/temp_${Date.now()}.geojson`
+            `uploads/uploads_dgn/temp_${Date.now()}.geojson`
           );
 
           const ogr2ogrCommand = `ogr2ogr -f "GeoJSON" -s_srs EPSG:${epsgCode} -t_srs EPSG:4326 ${
@@ -92,11 +92,11 @@ const handleApiRequest = async (req: NextApiRequest, res: NextApiResponse) => {
           }
         });
 
-        dxfFilePaths.forEach(async (dxfFilePath) => {
+        dgnFilePaths.forEach(async (dgnFilePath) => {
           try {
-            await fsPromises.unlink(dxfFilePath);
+            await fsPromises.unlink(dgnFilePath);
           } catch (unlinkError) {
-            console.error("Error removing DXF file:", unlinkError);
+            console.error("Error removing DGN file:", unlinkError);
           }
         });
 
