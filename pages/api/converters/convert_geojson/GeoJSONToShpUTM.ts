@@ -1,13 +1,13 @@
 import { NextApiRequest, NextApiResponse } from "next";
-import { spawn } from "child_process";
 import fs from "fs";
 import path from "path";
 import archiver from "archiver";
+import { spawn } from "child_process";
 
 export const config = {
   api: {
     bodyParser: {
-      sizeLimit: "40mb",
+      sizeLimit: "50mb",
     },
   },
 };
@@ -45,7 +45,7 @@ const findUTMZoneFromGeoJSON = (geojson) => {
     }
   }
 
-  return "EPSG:32737"; // Default to a common UTM zone if unable to determine
+  return "EPSG:32737";
 };
 
 const getFirstCoordinates = (geometry) => {
@@ -150,10 +150,8 @@ const handleSHPData = async (req: NextApiRequest, res: NextApiResponse) => {
         zlib: { level: 9 },
       });
 
-      // Pipe the ZIP stream to the response
       archive.pipe(res);
 
-      // Add Shapefile files to the ZIP stream from the "uploads" directory
       const shapefileFiles = [
         "output_point.shp",
         "output_point.shx",
@@ -167,7 +165,6 @@ const handleSHPData = async (req: NextApiRequest, res: NextApiResponse) => {
         "output_polygon.shx",
         "output_polygon.dbf",
         "output_polygon.prj",
-        // Add other related files as needed
       ];
 
       shapefileFiles.forEach((file) => {

@@ -1,13 +1,13 @@
 import { NextApiRequest, NextApiResponse } from "next";
-import { spawn } from "child_process";
 import fs from "fs";
 import path from "path";
 import archiver from "archiver";
+import { spawn } from "child_process";
 
 export const config = {
   api: {
     bodyParser: {
-      sizeLimit: "40mb",
+      sizeLimit: "50mb",
     },
   },
 };
