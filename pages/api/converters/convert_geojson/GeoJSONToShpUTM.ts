@@ -99,7 +99,7 @@ const convertToShapefile = async (features, fileName, geometryType) => {
   ogr2ogrProcess.stdin.write(JSON.stringify(typeSpecificGeoJson));
   ogr2ogrProcess.stdin.end();
 
-  return new Promise((resolve, reject) => {
+  return new Promise<void>((resolve, reject) => {
     ogr2ogrProcess.on("close", (code) => {
       if (code === 0) {
         console.log(`${fileName} conversion successful.`);
