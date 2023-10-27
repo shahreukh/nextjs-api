@@ -72,7 +72,7 @@ const getFirstCoordinates = (geometry) => {
 
 const convertToShapefile = async (features, fileName, geometryType) => {
   if (features.length === 0) {
-    return; // No features of this type, nothing to convert
+    return;
   }
 
   const typeSpecificGeoJson = {
@@ -92,7 +92,7 @@ const convertToShapefile = async (features, fileName, geometryType) => {
     "ESRI Shapefile",
     path.join(uploadsDirectory, fileName),
     "/vsistdin/",
-    "-t_srs", // Set the target spatial reference system (UTM zone)
+    "-t_srs",
     utmZone,
   ]);
 
