@@ -39,16 +39,19 @@ const handleUpload = async (req: NextApiRequest, res: NextApiResponse) => {
         res.status(500).json({ error: "Failed to upload file" });
       } else {
         try {
-          const { selectedZone, selectedHemisphere } = req.body;
+          const { selectedZoneShp, selectedHemisphereShp } = req.body;
 
-          if (selectedZone === undefined || selectedHemisphere === undefined) {
+          if (
+            selectedZoneShp === undefined ||
+            selectedHemisphereShp === undefined
+          ) {
             res.status(400).json({
-              error: "selectedZone and selectedHemisphere are required",
+              error: "selectedZoneShp and selectedHemisphereShp are required",
             });
             return;
           }
 
-          const epsgCode = getEPSGCode(selectedZone, selectedHemisphere);
+          const epsgCode = getEPSGCode(selectedZoneShp, selectedHemisphereShp);
 
           // Filter the files to keep only .shp, .shx, and .dbf files
           const allowedFileTypes = [".shp", ".shx", ".dbf"];
