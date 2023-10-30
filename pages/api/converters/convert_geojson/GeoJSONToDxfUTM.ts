@@ -172,9 +172,10 @@ const handleDXFDataUTM = async (req: NextApiRequest, res: NextApiResponse) => {
           res.setHeader("Content-Type", "application/octet-stream");
           res.setHeader(
             "Content-Disposition",
-            "attachment; filename=output.dxf"
+            `attachment; filename=output.dxf`
           );
-          res.send(dxfFileContent);
+
+          res.json({ dxfData: dxfFileContent, targetEPSG: targetEPSG });
 
           fs.unlinkSync(dxfFilePath);
         } else {
@@ -182,6 +183,7 @@ const handleDXFDataUTM = async (req: NextApiRequest, res: NextApiResponse) => {
           res.status(500).json({
             error: "Failed to convert GeoJSON to DXF.",
             dxfData: null,
+            targetEPSG: null,
           });
         }
       });
