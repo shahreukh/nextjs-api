@@ -2,7 +2,6 @@ import { NextApiRequest, NextApiResponse } from "next";
 import { spawn } from "child_process";
 import fs from "fs";
 import path from "path";
-import archiver from "archiver";
 
 export const config = {
   api: {
@@ -12,53 +11,112 @@ export const config = {
   },
 };
 
-const flattenGeometryCollection = (geometryCollection) => {
-  // Check if the input is a GeometryCollection and has geometries
+interface Geometry {
+  type: string;
+  coordinates: any;
+}
+
+interface GeometryCollection {
+  type: string;
+  geometries: Geometry[];
+}
+
+const flattenGeometryCollection = (
+  geometryCollection: GeometryCollection
+): GeometryCollection => {
   if (
     geometryCollection.type === "GeometryCollection" &&
     geometryCollection.geometries
   ) {
-    // Map over each geometry in the collection
-    const flattenedGeometries = geometryCollection.geometries.map(
-      (geometry) => {
-        // Switch based on the type of the individual geometry
-        switch (geometry.type) {
-          // If the geometry is a Polygon, convert it to MultiPolygon
-          case "Polygon":
-            return {
-              type: "MultiPolygon",
-              coordinates: [geometry.coordinates],
-            };
-          // If the geometry is a LineString, convert it to MultiLineString
-          case "LineString":
-            return {
-              type: "MultiLineString",
-              coordinates: [geometry.coordinates],
-            };
-          // If the geometry is a MultiPolygon, MultiLineString, or Point, leave it unchanged
-          case "MultiPolygon":
-          case "MultiLineString":
-          case "Point":
-            return geometry;
-          // If the geometry is of an unknown type, return null
-          default:
-            return null;
-        }
-      }
-    );
+    const polygons: any[] = [];
+    const lines: any[] = [];
+    const points: any[] = [];
 
-    // Filter out any null values (unknown geometry types) from the result
-    return {
+    geometryCollection.geometries.forEach((geometry) => {
+      if (geometry.type === "Polygon") {
+        polygons.push(geometry.coordinates);
+      } else if (geometry.type === "LineString") {
+        lines.push(geometry.coordinates);
+      } else if (geometry.type === "Point") {
+        points.push(geometry.coordinates);
+      }
+    });
+
+    const flattenedGeometry: GeometryCollection = {
       type: "GeometryCollection",
-      geometries: flattenedGeometries.filter((geometry) => geometry !== null),
+      geometries: [],
     };
+
+    if (polygons.length > 0) {
+      flattenedGeometry.geometries.push({
+        type: "MultiPolygon",
+        coordinates: polygons,
+      });
+    }
+
+    if (lines.length > 0) {
+      flattenedGeometry.geometries.push({
+        type: "MultiLineString",
+        coordinates: lines,
+      });
+    }
+
+    if (points.length > 0) {
+      flattenedGeometry.geometries.push({
+        type: "MultiPoint",
+        coordinates: points,
+      });
+    }
+
+    return flattenedGeometry;
   }
 
-  // If the input is not a GeometryCollection, return it unchanged
   return geometryCollection;
 };
 
-const handleSHPData = async (req: NextApiRequest, res: NextApiResponse) => {
+const findUTMZoneFromGeoJSON = (geojson: any) => {
+  if (geojson && geojson.features && geojson.features.length > 0) {
+    const firstFeature = geojson.features[0];
+    const firstCoordinates = getFirstCoordinates(firstFeature.geometry);
+
+    if (firstCoordinates) {
+      const longitude = firstCoordinates[0];
+      const latitude = firstCoordinates[1];
+      const utmZone = Math.floor((longitude + 180) / 6) + 1;
+      const hemisphereIndicator = latitude >= 0 ? "6" : "7";
+
+      return `EPSG:32${hemisphereIndicator}${
+        utmZone > 9 ? utmZone : "0" + utmZone
+      }`;
+    }
+  }
+
+  return "EPSG:32737";
+};
+
+const getFirstCoordinates = (geometry: any) => {
+  if (geometry && geometry.coordinates) {
+    if (geometry.type === "Point") {
+      return geometry.coordinates;
+    } else if (
+      geometry.type === "LineString" ||
+      geometry.type === "MultiPoint"
+    ) {
+      return geometry.coordinates[0];
+    } else if (
+      geometry.type === "Polygon" ||
+      geometry.type === "MultiLineString"
+    ) {
+      return geometry.coordinates[0][0];
+    } else if (geometry.type === "MultiPolygon") {
+      return geometry.coordinates[0][0][0];
+    }
+  }
+
+  return null;
+};
+
+const handleDXFDataUTM = async (req: NextApiRequest, res: NextApiResponse) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -71,120 +129,62 @@ const handleSHPData = async (req: NextApiRequest, res: NextApiResponse) => {
   if (req.method === "POST") {
     try {
       const { geoJsonData } = req.body;
-      const uploadsDirectory = path.join(process.cwd(), "uploads/uploads_shp");
 
-      const lineFeatures = [];
-      const polygonFeatures = [];
-
-      // Separate line and polygon features
-      geoJsonData.features.forEach((feature) => {
-        if (
-          feature.geometry &&
-          feature.geometry.type &&
-          (feature.geometry.type === "LineString" ||
-            feature.geometry.type === "MultiLineString")
-        ) {
-          lineFeatures.push({
-            ...feature,
-            geometry: flattenGeometryCollection(feature.geometry),
-          });
-        } else if (
-          feature.geometry &&
-          feature.geometry.type &&
-          (feature.geometry.type === "Polygon" ||
-            feature.geometry.type === "MultiPolygon")
-        ) {
-          polygonFeatures.push({
-            ...feature,
-            geometry: flattenGeometryCollection(feature.geometry),
-          });
-        } else {
-          console.error("Invalid feature:", feature);
-        }
-      });
-
-      // Helper function to convert features to shapefile
-      const convertToShapefile = async (features, fileNamePrefix) => {
-        if (features.length === 0) {
-          console.error("No features to convert.");
-          return Promise.reject("No features to convert.");
-        }
-
-        const feature = features[0];
-
-        if (!feature.geometry || !feature.geometry.type) {
-          console.error("Invalid feature geometry.");
-          return Promise.reject("Invalid feature geometry.");
-        }
-
-        const individualGeoJson = {
-          type: "FeatureCollection",
-          features,
-        };
-
-        const individualGeoJsonString = JSON.stringify(individualGeoJson);
-
-        const outputFileName = `${fileNamePrefix}_${feature.geometry.type.toLowerCase()}.shp`;
-
-        return new Promise((resolve, reject) => {
-          const ogr2ogr = spawn("ogr2ogr", [
-            "-f",
-            "ESRI Shapefile",
-            path.join(uploadsDirectory, outputFileName),
-            "/vsistdin/",
-          ]);
-
-          ogr2ogr.stdin.write(individualGeoJsonString);
-          ogr2ogr.stdin.end();
-
-          ogr2ogr.on("close", (code) => {
-            if (code === 0) {
-              console.log(
-                `ogr2ogr process for ${feature.geometry.type} completed successfully.`
-              );
-              resolve(outputFileName);
-            } else {
-              console.error(
-                `ogr2ogr process for ${feature.geometry.type} exited with code`,
-                code
-              );
-              reject(
-                `Failed to convert GeoJSON to SHP for ${feature.geometry.type}.`
-              );
-            }
-          });
-        });
+      const flattenedGeoJson = {
+        ...geoJsonData,
+        features: geoJsonData.features.map((feature: any) => ({
+          ...feature,
+          geometry: flattenGeometryCollection(feature.geometry),
+        })),
       };
 
-      // Convert line features to shapefile
-      const lineShapefile = await convertToShapefile(
-        lineFeatures,
-        "line_output"
-      );
+      const geoJsonString = JSON.stringify(flattenedGeoJson);
+      console.log(geoJsonString);
 
-      // Convert polygon features to shapefile
-      const polygonShapefile = await convertToShapefile(
-        polygonFeatures,
-        "polygon_output"
-      );
+      const uploadsDirectory = path.join(process.cwd(), "uploads/uploads_dxf");
+      if (!fs.existsSync(uploadsDirectory)) {
+        fs.mkdirSync(uploadsDirectory);
+      }
 
-      // Send both shapefiles in a zip file
-      const archive = archiver("zip", {
-        zlib: { level: 9 },
+      const targetEPSG = findUTMZoneFromGeoJSON(geoJsonData);
+      console.log(targetEPSG);
+
+      const ogr2ogr = spawn("ogr2ogr", [
+        "-f",
+        "DXF",
+        "-t_srs",
+        targetEPSG,
+        path.join(uploadsDirectory, "output.dxf"),
+        "/vsistdin/",
+      ]);
+
+      console.log("ogr2ogr command:", ogr2ogr.spawnargs.join(" "));
+
+      ogr2ogr.stdin.write(geoJsonString);
+      ogr2ogr.stdin.end();
+
+      ogr2ogr.on("close", (code) => {
+        if (code === 0) {
+          console.log("ogr2ogr process completed successfully.");
+          const dxfFilePath = path.join(uploadsDirectory, "output.dxf");
+          const dxfFileContent = fs.readFileSync(dxfFilePath, "utf-8");
+
+          res.setHeader("Content-Type", "application/octet-stream");
+          res.setHeader(
+            "Content-Disposition",
+            "attachment; filename=output.dxf"
+          );
+          res.send(dxfFileContent);
+
+          fs.unlinkSync(dxfFilePath);
+        } else {
+          console.error("ogr2ogr process exited with code", code);
+          res.status(500).json({
+            error: "Failed to convert GeoJSON to DXF.",
+            dxfData: null,
+          });
+        }
       });
-
-      archive.pipe(res);
-
-      [lineShapefile, polygonShapefile].forEach((outputFileName) => {
-        archive.file(path.join(uploadsDirectory, outputFileName), {
-          name: outputFileName,
-        });
-
-        // Cleanup: Remove temporary files
-        fs.unlinkSync(path.join(uploadsDirectory, outputFileName));
-      });
-
-      archive.finalize();
     } catch (error) {
       console.error("Error while processing GeoJSON data:", error);
       res.status(500).json({ error: "Failed to process GeoJSON data." });
@@ -194,4 +194,4 @@ const handleSHPData = async (req: NextApiRequest, res: NextApiResponse) => {
   }
 };
 
-export default handleSHPData;
+export default handleDXFDataUTM;

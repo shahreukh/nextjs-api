@@ -54,7 +54,7 @@ const findUTMZoneFromGeoJSON = (geojson) => {
       const latitude = firstCoordinates[1];
       const utmZone = Math.floor((longitude + 180) / 6) + 1;
       const hemisphereIndicator = latitude >= 0 ? "6" : "7";
-      console.log(longitude, latitude, utmZone, hemisphereIndicator);
+      //console.log(longitude, latitude, utmZone, hemisphereIndicator);
       return `EPSG:32${hemisphereIndicator}${
         utmZone > 9 ? utmZone : "0" + utmZone
       }`;
@@ -99,7 +99,7 @@ const handleDGNDataUTM = async (req: NextApiRequest, res: NextApiResponse) => {
   if (req.method === "POST") {
     try {
       const { geoJsonData } = req.body;
-      console.log(geoJsonData);
+      //console.log(geoJsonData);
       const flattenedGeoJson = {
         ...geoJsonData,
         features: geoJsonData.features.map((feature) => ({
@@ -109,7 +109,7 @@ const handleDGNDataUTM = async (req: NextApiRequest, res: NextApiResponse) => {
       };
 
       const geoJsonString = JSON.stringify(flattenedGeoJson);
-      console.log(geoJsonString);
+      //console.log(geoJsonString);
       const uploadsDirectory = path.join(process.cwd(), "uploads/uploads_dgn");
       if (!fs.existsSync(uploadsDirectory)) {
         fs.mkdirSync(uploadsDirectory);
@@ -135,7 +135,7 @@ const handleDGNDataUTM = async (req: NextApiRequest, res: NextApiResponse) => {
 
       ogr2ogr.on("close", (code) => {
         if (code === 0) {
-          console.log("ogr2ogr process completed successfully.");
+          //console.log("ogr2ogr process completed successfully.");
 
           if (fs.existsSync(dgnFilePath)) {
             const dgnFileContent = fs.readFileSync(dgnFilePath);

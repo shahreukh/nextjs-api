@@ -107,7 +107,7 @@ const convertToShapefile = async (features, fileName, geometryType) => {
   return new Promise((resolve, reject) => {
     ogr2ogrProcess.on("close", (code) => {
       if (code === 0) {
-        console.log(`${fileName} conversion successful.`);
+        //console.log(`${fileName} conversion successful.`);
         resolve();
       } else {
         console.error(`${fileName} conversion failed with code ${code}`);
@@ -135,7 +135,7 @@ const handleSHPData = async (req: NextApiRequest, res: NextApiResponse) => {
 
       const flattenedGeoJson = flattenGeometryCollection(geoJsonData);
       const geoJsonString = JSON.stringify(flattenedGeoJson);
-      console.log(geoJsonString);
+      //console.log(geoJsonString);
       const pointFeatures = flattenedGeoJson.features.filter(
         (feature) => feature.geometry.type === "Point"
       );
@@ -183,7 +183,7 @@ const handleSHPData = async (req: NextApiRequest, res: NextApiResponse) => {
         if (fs.existsSync(filePath)) {
           archive.file(filePath, { name: file });
         } else {
-          console.error(`File not found: ${filePath}`);
+          //console.error(`File not found: ${filePath}`);
         }
       });
 

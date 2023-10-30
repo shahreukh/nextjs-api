@@ -139,7 +139,7 @@ const handleDXFDataUTM = async (req: NextApiRequest, res: NextApiResponse) => {
       };
 
       const geoJsonString = JSON.stringify(flattenedGeoJson);
-      console.log(geoJsonString);
+      //console.log(geoJsonString);
 
       const uploadsDirectory = path.join(process.cwd(), "uploads/uploads_dxf");
       if (!fs.existsSync(uploadsDirectory)) {
@@ -147,7 +147,6 @@ const handleDXFDataUTM = async (req: NextApiRequest, res: NextApiResponse) => {
       }
 
       const targetEPSG = findUTMZoneFromGeoJSON(geoJsonData);
-      console.log(targetEPSG);
 
       const ogr2ogr = spawn("ogr2ogr", [
         "-f",
@@ -165,7 +164,7 @@ const handleDXFDataUTM = async (req: NextApiRequest, res: NextApiResponse) => {
 
       ogr2ogr.on("close", (code) => {
         if (code === 0) {
-          console.log("ogr2ogr process completed successfully.");
+          //console.log("ogr2ogr process completed successfully.");
           const dxfFilePath = path.join(uploadsDirectory, "output.dxf");
           const dxfFileContent = fs.readFileSync(dxfFilePath, "utf-8");
 

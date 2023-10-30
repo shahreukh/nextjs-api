@@ -60,7 +60,7 @@ const handleApiRequest = async (
             // Delete the uploaded DGN file
             try {
               await fsPromises.unlink(dgnFilePath);
-              console.log("Uploaded DGN file removed due to conversion error.");
+              //console.log("Uploaded DGN file removed due to conversion error.");
             } catch (unlinkError) {
               console.error("Error removing uploaded DGN file:", unlinkError);
             }
@@ -81,7 +81,7 @@ const handleApiRequest = async (
             // Delete the uploaded DGN file
             try {
               await fsPromises.unlink(dgnFilePath);
-              console.log("Uploaded DGN file removed successfully.");
+              //console.log("Uploaded DGN file removed successfully.");
             } catch (unlinkError) {
               console.error("Error removing uploaded DGN file:", unlinkError);
             }
@@ -92,7 +92,7 @@ const handleApiRequest = async (
             // Delete the temporary GeoJSON file after reading or in case of an error
             try {
               await fsPromises.unlink(temporaryGeoJSONFilePath);
-              console.log("Temporary GeoJSON file removed successfully.");
+              //console.log("Temporary GeoJSON file removed successfully.");
             } catch (unlinkError) {
               console.error(
                 "Error removing temporary GeoJSON file:",
