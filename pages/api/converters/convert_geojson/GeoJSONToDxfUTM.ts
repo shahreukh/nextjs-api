@@ -157,7 +157,7 @@ const handleDXFDataUTM = async (req: NextApiRequest, res: NextApiResponse) => {
         "/vsistdin/",
       ]);
 
-      console.log("ogr2ogr command:", ogr2ogr.spawnargs.join(" "));
+      //console.log("ogr2ogr command:", ogr2ogr.spawnargs.join(" "));
 
       ogr2ogr.stdin.write(geoJsonString);
       ogr2ogr.stdin.end();
