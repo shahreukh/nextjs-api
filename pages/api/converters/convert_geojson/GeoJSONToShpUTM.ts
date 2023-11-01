@@ -70,7 +70,12 @@ const getFirstCoordinates = (geometry) => {
   return null;
 };
 
-const convertToShapefile = async (features, fileName, geometryType) => {
+const convertToShapefile = async (
+  features,
+  fileName,
+  geometryType,
+  epsgCode
+) => {
   if (features.length === 0) {
     return;
   }
@@ -90,7 +95,7 @@ const convertToShapefile = async (features, fileName, geometryType) => {
   const ogr2ogrProcess = spawn("ogr2ogr", [
     "-f",
     "ESRI Shapefile",
-    path.join(uploadsDirectory, fileName),
+    path.join(uploadsDirectory, `${fileName}_${epsgCode}.shp`),
     "/vsistdin/",
     "-t_srs",
     utmZone,
@@ -126,8 +131,9 @@ const handleSHPData = async (req: NextApiRequest, res: NextApiResponse) => {
 
   if (req.method === "POST") {
     try {
-      const { geoJsonData } = req.body;
-
+      const { geoJsonData, fileName } = req.body;
+      console.log(fileName);
+      const epsgCode = findUTMZoneFromGeoJSON(geoJsonData);
       const flattenedGeoJson = geoJsonData;
       const pointFeatures = flattenedGeoJson.features.filter(
         (feature) => feature.geometry.type === "Point"
@@ -140,9 +146,24 @@ const handleSHPData = async (req: NextApiRequest, res: NextApiResponse) => {
       );
 
       await Promise.all([
-        convertToShapefile(pointFeatures, "output_point.shp", "Point"),
-        convertToShapefile(lineFeatures, "output_line.shp", "LineString"),
-        convertToShapefile(polygonFeatures, "output_polygon.shp", "Polygon"),
+        convertToShapefile(
+          pointFeatures,
+          `${fileName}_point`,
+          "Point",
+          epsgCode
+        ),
+        convertToShapefile(
+          lineFeatures,
+          `${fileName}_line`,
+          "LineString",
+          epsgCode
+        ),
+        convertToShapefile(
+          polygonFeatures,
+          `${fileName}_polygon`,
+          "Polygon",
+          epsgCode
+        ),
       ]);
 
       // Create a ZIP stream
@@ -153,18 +174,18 @@ const handleSHPData = async (req: NextApiRequest, res: NextApiResponse) => {
       archive.pipe(res);
 
       const shapefileFiles = [
-        "output_point.shp",
-        "output_point.shx",
-        "output_point.dbf",
-        "output_point.prj",
-        "output_line.shp",
-        "output_line.shx",
-        "output_line.dbf",
-        "output_line.prj",
-        "output_polygon.shp",
-        "output_polygon.shx",
-        "output_polygon.dbf",
-        "output_polygon.prj",
+        `${fileName}_point_${epsgCode}.shp`,
+        `${fileName}_point_${epsgCode}.shx`,
+        `${fileName}_point_${epsgCode}.dbf`,
+        `${fileName}_point_${epsgCode}.prj`,
+        `${fileName}_line_${epsgCode}.shp`,
+        `${fileName}_line_${epsgCode}.shx`,
+        `${fileName}_line_${epsgCode}.dbf`,
+        `${fileName}_line_${epsgCode}.prj`,
+        `${fileName}_polygon_${epsgCode}.shp`,
+        `${fileName}_polygon_${epsgCode}.shx`,
+        `${fileName}_polygon_${epsgCode}.dbf`,
+        `${fileName}_polygon_${epsgCode}.prj`,
       ];
 
       shapefileFiles.forEach((file) => {
@@ -181,7 +202,7 @@ const handleSHPData = async (req: NextApiRequest, res: NextApiResponse) => {
       archive.finalize();
 
       // Cleanup: Remove temporary files
-      archive.on("finish", () => {
+      archive.on("end", () => {
         shapefileFiles.forEach((file) => {
           const filePath = path.join(uploadsDirectory, file);
           if (fs.existsSync(filePath)) {

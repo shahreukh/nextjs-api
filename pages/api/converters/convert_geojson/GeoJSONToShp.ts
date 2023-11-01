@@ -174,7 +174,6 @@ const handleSHPData = async (req: NextApiRequest, res: NextApiResponse) => {
         "output_polygon.shx",
         "output_polygon.dbf",
         "output_polygon.prj",
-        // Add other related files as needed
       ];
 
       shapefileFiles.forEach((file) => {
@@ -191,7 +190,7 @@ const handleSHPData = async (req: NextApiRequest, res: NextApiResponse) => {
       archive.finalize();
 
       // Cleanup: Remove temporary files
-      archive.on("finish", () => {
+      archive.on("end", () => {
         shapefileFiles.forEach((file) => {
           const filePath = path.join(uploadsDirectory, file);
           if (fs.existsSync(filePath)) {

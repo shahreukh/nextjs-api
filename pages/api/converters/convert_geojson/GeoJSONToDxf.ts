@@ -31,7 +31,15 @@ const handleDXFData = async (req: NextApiRequest, res: NextApiResponse) => {
 
       const tmpDirectory = "/tmp";
       if (!fs.existsSync(tmpDirectory)) {
-        fs.mkdirSync(tmpDirectory);
+        try {
+          fs.mkdirSync(tmpDirectory);
+        } catch (err) {
+          console.error("Error creating /tmp directory:", err);
+          res
+            .status(500)
+            .json({ error: "Failed to create temporary directory." });
+          return;
+        }
       }
 
       const ogr2ogr = spawn("ogr2ogr", [
@@ -41,7 +49,7 @@ const handleDXFData = async (req: NextApiRequest, res: NextApiResponse) => {
         "/vsistdin/",
       ]);
 
-      console.log("ogr2ogr command:", ogr2ogr.spawnargs.join(" "));
+      //console.log("ogr2ogr command:", ogr2ogr.spawnargs.join(" "));
 
       ogr2ogr.stdin.write(geoJsonString);
       ogr2ogr.stdin.end();

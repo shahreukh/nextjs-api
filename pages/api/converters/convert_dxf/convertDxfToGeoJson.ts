@@ -34,7 +34,7 @@ const handleApiRequest = async (req: NextApiRequest, res: NextApiResponse) => {
   }
 
   corsMiddleware(req, res, async () => {
-    await upload.array("dxfFile")(req, res, async (err) => {
+    upload.array("dxfFile")(req, res, async (err) => {
       if (err) {
         return res.status(400).json({ error: "File upload error." });
       }
