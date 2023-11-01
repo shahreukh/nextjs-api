@@ -146,6 +146,7 @@ const handleDGNDataUTM = async (req: NextApiRequest, res: NextApiResponse) => {
               "attachment; filename=output.dgn"
             );
             res.send(dgnFileContent);
+            fs.unlinkSync(dgnFilePath);
           } else {
             console.error("DGN file does not exist:", dgnFilePath);
             res.status(500).json({

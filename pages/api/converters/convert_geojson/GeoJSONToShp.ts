@@ -131,7 +131,7 @@ const handleSHPData = async (req: NextApiRequest, res: NextApiResponse) => {
 
   if (req.method === "POST") {
     try {
-      const { geoJsonData } = req.body;
+      const { geoJsonData, fileName } = req.body;
 
       const flattenedGeoJson = flattenGeometryCollection(geoJsonData);
       const geoJsonString = JSON.stringify(flattenedGeoJson);
@@ -147,9 +147,13 @@ const handleSHPData = async (req: NextApiRequest, res: NextApiResponse) => {
       );
 
       await Promise.all([
-        convertToShapefile(pointFeatures, "output_point.shp", "Point"),
-        convertToShapefile(lineFeatures, "output_line.shp", "LineString"),
-        convertToShapefile(polygonFeatures, "output_polygon.shp", "Polygon"),
+        convertToShapefile(pointFeatures, `${fileName}_point.shp`, "Point"),
+        convertToShapefile(lineFeatures, `${fileName}_line.shp`, "LineString"),
+        convertToShapefile(
+          polygonFeatures,
+          `${fileName}_polygon.shp`,
+          "Polygon"
+        ),
       ]);
 
       // Create a ZIP stream
@@ -162,18 +166,18 @@ const handleSHPData = async (req: NextApiRequest, res: NextApiResponse) => {
 
       // Add Shapefile files to the ZIP stream from the "uploads" directory
       const shapefileFiles = [
-        "output_point.shp",
-        "output_point.shx",
-        "output_point.dbf",
-        "output_point.prj",
-        "output_line.shp",
-        "output_line.shx",
-        "output_line.dbf",
-        "output_line.prj",
-        "output_polygon.shp",
-        "output_polygon.shx",
-        "output_polygon.dbf",
-        "output_polygon.prj",
+        `${fileName}_point.shp`,
+        `${fileName}_point.shx`,
+        `${fileName}_point.dbf`,
+        `${fileName}_point.prj`,
+        `${fileName}_line.shp`,
+        `${fileName}_line.shx`,
+        `${fileName}_line.dbf`,
+        `${fileName}_line.prj`,
+        `${fileName}_polygon.shp`,
+        `${fileName}_polygon.shx`,
+        `${fileName}_polygon.dbf`,
+        `${fileName}_polygon.prj`,
       ];
 
       shapefileFiles.forEach((file) => {
@@ -189,7 +193,6 @@ const handleSHPData = async (req: NextApiRequest, res: NextApiResponse) => {
       // Finalize the ZIP archive
       archive.finalize();
 
-      // Cleanup: Remove temporary files
       archive.on("end", () => {
         shapefileFiles.forEach((file) => {
           const filePath = path.join(uploadsDirectory, file);
