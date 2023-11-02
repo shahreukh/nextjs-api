@@ -132,7 +132,7 @@ const handleSHPData = async (req: NextApiRequest, res: NextApiResponse) => {
   if (req.method === "POST") {
     try {
       const { geoJsonData, fileName } = req.body;
-      const epsgCode = findUTMZoneFromGeoJSON(geoJsonData);
+      const epsgCode = findUTMZoneFromGeoJSON(geoJsonData).replace(":", "_");
       const flattenedGeoJson = geoJsonData;
       const pointFeatures = flattenedGeoJson.features.filter(
         (feature) => feature.geometry.type === "Point"

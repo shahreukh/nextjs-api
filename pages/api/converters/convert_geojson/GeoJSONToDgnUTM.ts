@@ -141,10 +141,12 @@ const handleDGNDataUTM = async (req: NextApiRequest, res: NextApiResponse) => {
             const dgnFileContent = fs.readFileSync(dgnFilePath);
 
             res.setHeader("Content-Type", "application/dgn");
-            res.setHeader(
-              "Content-Disposition",
-              "attachment; filename=output.dgn"
-            );
+            // res.setHeader(
+            //   "Content-Disposition",
+            //   "attachment; filename=output.dgn"
+            // );
+            res.setHeader("TargetEPSG", "abc");
+
             res.send(dgnFileContent);
             fs.unlinkSync(dgnFilePath);
           } else {
