@@ -14,7 +14,7 @@ const corsMiddleware = cors({
 const upload = multer({
   dest: "uploads/uploads_dxf/",
   limits: {
-    fileSize: 300 * 1024 * 1024,
+    fileSize: 50 * 1024 * 1024,
   },
 });
 
