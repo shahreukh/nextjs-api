@@ -123,6 +123,7 @@ const handleSHPData = async (req: NextApiRequest, res: NextApiResponse) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Expose-Headers", "UTMZone"); // Set the UTMZone header
 
   if (req.method === "OPTIONS") {
     res.status(200).end();
@@ -144,6 +145,7 @@ const handleSHPData = async (req: NextApiRequest, res: NextApiResponse) => {
         (feature) => feature.geometry.type === "Polygon"
       );
 
+      const utmZone = findUTMZoneFromGeoJSON(geoJsonData);
       await Promise.all([
         convertToShapefile(
           pointFeatures,
@@ -209,6 +211,7 @@ const handleSHPData = async (req: NextApiRequest, res: NextApiResponse) => {
           }
         });
       });
+      res.setHeader("UTMZone", utmZone);
     } catch (error) {
       console.error("Error while processing GeoJSON data:", error);
       res.status(500).json({ error: "Failed to process GeoJSON data." });

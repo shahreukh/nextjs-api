@@ -90,6 +90,7 @@ const handleDGNDataUTM = async (req: NextApiRequest, res: NextApiResponse) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Expose-Headers", "TargetEPSG");
 
   if (req.method === "OPTIONS") {
     res.status(200).end();
@@ -145,7 +146,8 @@ const handleDGNDataUTM = async (req: NextApiRequest, res: NextApiResponse) => {
             //   "Content-Disposition",
             //   "attachment; filename=output.dgn"
             // );
-            res.setHeader("TargetEPSG", "abc");
+            const targetEPSG = findUTMZoneFromGeoJSON(geoJsonData);
+            res.setHeader("TargetEPSG", targetEPSG);
 
             res.send(dgnFileContent);
             fs.unlinkSync(dgnFilePath);
