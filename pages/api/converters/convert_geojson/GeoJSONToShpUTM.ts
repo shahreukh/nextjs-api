@@ -27,7 +27,27 @@ interface GeometryCollection {
   type: string;
   geometries: Geometry[];
 }
+const flattenGeoJson = (geoJson) => {
+  const flattenedFeatures = [];
+  for (const feature of geoJson.features) {
+    const geometries = feature.geometry.geometries;
+    if (geometries) {
+      // Handle nested geometries and create separate features
+      for (const geometry of geometries) {
+        flattenedFeatures.push({
+          type: "Feature",
+          geometry: geometry,
+          properties: feature.properties,
+        });
+      }
+    } else {
+      // If no nested geometries, use the original feature
+      flattenedFeatures.push(feature);
+    }
+  }
 
+  return { type: "FeatureCollection", features: flattenedFeatures };
+};
 const findUTMZoneFromGeoJSON = (geojson) => {
   if (geojson && geojson.features && geojson.features.length > 0) {
     const firstFeature = geojson.features[0];
@@ -123,7 +143,7 @@ const handleSHPData = async (req: NextApiRequest, res: NextApiResponse) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  res.setHeader("Access-Control-Expose-Headers", "UTMZone"); // Set the UTMZone header
+  res.setHeader("Access-Control-Expose-Headers", "UTMZone");
 
   if (req.method === "OPTIONS") {
     res.status(200).end();
@@ -134,7 +154,7 @@ const handleSHPData = async (req: NextApiRequest, res: NextApiResponse) => {
     try {
       const { geoJsonData, fileName } = req.body;
       const epsgCode = findUTMZoneFromGeoJSON(geoJsonData).replace(":", "_");
-      const flattenedGeoJson = geoJsonData;
+      const flattenedGeoJson = flattenGeoJson(geoJsonData);
       const pointFeatures = flattenedGeoJson.features.filter(
         (feature) => feature.geometry.type === "Point"
       );

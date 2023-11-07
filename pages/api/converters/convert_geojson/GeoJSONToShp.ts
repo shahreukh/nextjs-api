@@ -75,6 +75,28 @@ const flattenGeometryCollection = (
   return geometryCollection;
 };
 
+const flattenGeoJson = (geoJson) => {
+  const flattenedFeatures = [];
+  for (const feature of geoJson.features) {
+    const geometries = feature.geometry.geometries;
+    if (geometries) {
+      // Handle nested geometries and create separate features
+      for (const geometry of geometries) {
+        flattenedFeatures.push({
+          type: "Feature",
+          geometry: geometry,
+          properties: feature.properties,
+        });
+      }
+    } else {
+      // If no nested geometries, use the original feature
+      flattenedFeatures.push(feature);
+    }
+  }
+
+  return { type: "FeatureCollection", features: flattenedFeatures };
+};
+
 const convertToShapefile = async (features, fileName, geometryType) => {
   if (features.length === 0) {
     return; // No features of this type, nothing to convert
@@ -104,10 +126,9 @@ const convertToShapefile = async (features, fileName, geometryType) => {
   ogr2ogrProcess.stdin.write(typeSpecificGeoJsonString);
   ogr2ogrProcess.stdin.end();
 
-  return new Promise((resolve, reject) => {
+  return new Promise<void>((resolve, reject) => {
     ogr2ogrProcess.on("close", (code) => {
       if (code === 0) {
-        //console.log(`${fileName} conversion successful.`);
         resolve();
       } else {
         console.error(`${fileName} conversion failed with code ${code}`);
@@ -133,9 +154,8 @@ const handleSHPData = async (req: NextApiRequest, res: NextApiResponse) => {
     try {
       const { geoJsonData, fileName } = req.body;
 
-      const flattenedGeoJson = flattenGeometryCollection(geoJsonData);
-      const geoJsonString = JSON.stringify(flattenedGeoJson);
-      //console.log(geoJsonString);
+      const flattenedGeoJson = flattenGeoJson(geoJsonData);
+
       const pointFeatures = flattenedGeoJson.features.filter(
         (feature) => feature.geometry.type === "Point"
       );
@@ -186,7 +206,7 @@ const handleSHPData = async (req: NextApiRequest, res: NextApiResponse) => {
         if (fs.existsSync(filePath)) {
           archive.file(filePath, { name: file });
         } else {
-          //console.error(`File not found: ${filePath}`);
+          console.error(`File not found: ${filePath}`);
         }
       });
 
